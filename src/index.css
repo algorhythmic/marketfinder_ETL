@@ -41,3 +41,49 @@ body {
 .auth-button {
   @apply w-full px-4 py-3 rounded bg-primary text-white font-semibold hover:bg-primary-hover transition-colors shadow-sm hover:shadow dark:shadow-[0_1px_2px_0_#000] dark:hover:shadow-[0_1px_3px_0_#000] disabled:opacity-50 disabled:cursor-not-allowed;
 }
+
+/* Custom Scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #000 #f1f1f1;
+}
+
+/* Chrome, Edge, and Safari */
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-left: 2px solid #000;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #000;
+  border: 2px solid #000;
+  border-radius: 0;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #333;
+}
+
+/* Dark mode styles */
+.dark *::-webkit-scrollbar-track {
+  background: #1f2937;
+  border-left: 2px solid #000;
+}
+
+.dark *::-webkit-scrollbar-thumb {
+  background-color: #4b5563;
+  border: 2px solid #000;
+}
+
+.dark *::-webkit-scrollbar-thumb:hover {
+  background-color: #6b7280;
+}
+
+.dark * {
+  scrollbar-color: #4b5563 #1f2937;
+}
