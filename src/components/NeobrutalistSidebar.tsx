@@ -1,5 +1,4 @@
 import {
-  BarChart3,
   TrendingUp,
   Settings,
   Home,
@@ -9,6 +8,7 @@ import {
   ChevronUp,
   User2,
   Bot,
+  ChartColumnIncreasing, // Added new icon
 } from "lucide-react"
 
 import {
@@ -17,16 +17,17 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarTrigger,
 } from "./ui/sidebar"
 import { useQuery } from "convex/react"
 import { api } from "../../convex/_generated/api"
-import { useSidebar } from "./ui/sidebar"
+import { useSidebar } from "./ui/sidebar";
+import { cn } from "../lib/utils"; // Import cn utility
 
 // Menu items.
 const items = [
@@ -94,11 +95,13 @@ export function NeobrutalistSidebar({ activeView, onViewChange, onMobileNavItemC
       collapsible="icon" 
       className={className} // Use passed className, width controlled by ui/sidebar.tsx
     >
-      <SidebarHeader className="h-16 border-b-4 border-black bg-yellow-300 dark:bg-gray-800 flex items-center px-4 -mt-[4px] -ml-[4px] w-[calc(100%+4px)]">
-        <div className="flex items-center gap-2">
-          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-black text-white dark:bg-gray-700 dark:text-gray-200">
-            <BarChart3 className="size-4" />
-          </div>
+      <SidebarHeader className="h-16 border-b-4 border-black bg-yellow-300 dark:bg-gray-800 flex items-center justify-start px-4 -mt-[4px] -ml-[4px] w-[calc(100%+4px)]">
+        <div className={cn("flex items-center w-full", isCollapsed ? "justify-center" : "gap-2 justify-start")}>
+          <SidebarTrigger 
+            className="h-8 w-8 p-1 bg-green-500 text-white border-2 border-black rounded-md shadow-[3px_3px_0px_0px_#000] hover:shadow-[1px_1px_0px_0px_#000] hover:translate-x-[1px] hover:translate-y-[1px] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all focus:outline-none dark:bg-green-600 dark:text-white dark:border-black dark:shadow-[3px_3px_0px_0px_#000] dark:hover:shadow-[1px_1px_0px_0px_#000]"
+          >
+            <ChartColumnIncreasing className="h-6 w-6 text-black" />
+          </SidebarTrigger>
           {!isCollapsed && (
             <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
               <span className="truncate font-bold text-black dark:text-white">Market Finder</span>
@@ -109,11 +112,6 @@ export function NeobrutalistSidebar({ activeView, onViewChange, onMobileNavItemC
       </SidebarHeader>
       <SidebarContent className="bg-white dark:bg-gray-900">
         <SidebarGroup>
-          {!isCollapsed && (
-            <SidebarGroupLabel className="text-black font-bold dark:text-gray-300">
-              Navigation
-            </SidebarGroupLabel>
-          )}
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "./ui/sidebar"
+import { SidebarProvider, SidebarInset } from "./ui/sidebar"
 import { NeobrutalistSidebar } from "./NeobrutalistSidebar"
 import { DashboardOverview } from "./DashboardOverview"
 import { MarketsView } from "./MarketsView"
@@ -10,6 +10,16 @@ import { SettingsView } from "./SettingsView";
 import { AutomationView } from "./AutomationView"; // Added AutomationView import
 import { ThemeToggle } from "./ThemeToggle"
 import { SignOutButton } from "../SignOutButton"
+
+const viewTitles: { [key: string]: string } = {
+  dashboard: "Dashboard",
+  markets: "Markets",
+  arbitrage: "Arbitrage",
+  groups: "Market Groups",
+  alerts: "Alerts",
+  settings: "Settings",
+  automation: "Automation",
+};
 
 export function Dashboard() {
   const [activeView, setActiveView] = useState("dashboard")
@@ -42,9 +52,7 @@ export function Dashboard() {
         <SidebarInset className="flex flex-col flex-1 overflow-auto">
           <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-4 border-l-0 border-black bg-white px-4 dark:bg-gray-800 relative z-10">
             <div className="flex items-center gap-2">
-              <SidebarTrigger className="-ml-1" />
-              <div className="h-6 w-px bg-black dark:bg-gray-500" />
-              <h1 className="text-lg font-bold text-black dark:text-white">Market Finder</h1>
+              <h1 className="text-lg font-bold text-black dark:text-white">{viewTitles[activeView] || 'Market Finder'}</h1>
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />

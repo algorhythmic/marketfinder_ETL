@@ -1,6 +1,9 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useState, useEffect } from "react";
+import { PlusCircle } from 'lucide-react';
+import { Button } from "./ui/button"; // Assuming Button component exists and is styled
+import { PlatformStatusList } from './PlatformStatusList';
 
 export function SettingsView() {
   const profile = useQuery(api.users.getUserProfile);
@@ -44,10 +47,25 @@ export function SettingsView() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header Description (Title moved to main app header) */}
       <div className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_#000] p-6 rounded-lg dark:bg-gray-800 dark:border-black dark:shadow-[8px_8px_0px_0px_#000]">
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h2>
         <p className="text-gray-600 mt-1 font-medium dark:text-gray-400">Customize your Market Finder experience</p>
+      </div>
+
+      {/* Platform Connections Section */}
+      <div className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_#000] p-6 rounded-lg dark:bg-gray-800 dark:border-black dark:shadow-[8px_8px_0px_0px_#000]">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Platform Connections</h3>
+          <Button 
+            variant="default" 
+            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md border-2 border-black shadow-[4px_4px_0px_0px_#000] active:shadow-[2px_2px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] transition-all dark:bg-blue-600 dark:hover:bg-blue-700 dark:border-black dark:shadow-[4px_4px_0px_0px_#000]"
+            onClick={() => console.log('Connect Platform clicked')}
+          >
+            <PlusCircle className="mr-2 h-5 w-5" />
+            Connect Platform
+          </Button>
+        </div>
+        <PlatformStatusList platforms={platforms} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -331,7 +331,7 @@ Sidebar.displayName = "Sidebar"
 const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
   React.ComponentProps<typeof Button>
->(({ className, onClick, ...props }, ref) => {
+>(({ className, onClick, children, ...props }, ref) => { // Explicitly destructure children
   const { toggleSidebar } = useSidebar()
 
   return (
@@ -341,17 +341,17 @@ const SidebarTrigger = React.forwardRef<
       variant="ghost"
       size="icon"
       className={cn(
-        "h-8 w-8 border-2 border-black bg-white hover:bg-yellow-300 transition-colors",
+        "border-2 border-black bg-white hover:bg-yellow-300 transition-colors", // Removed h-8 w-8
         className
       )}
       onClick={(event) => {
         onClick?.(event)
         toggleSidebar()
       }}
+      aria-label="Toggle sidebar" // Added for accessibility
       {...props}
     >
-      <PanelLeft className="h-4 w-4" />
-      <span className="sr-only">Toggle Sidebar</span>
+      {children || <PanelLeft className="h-5 w-5" />}
     </Button>
   )
 })

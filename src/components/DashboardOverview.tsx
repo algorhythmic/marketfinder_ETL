@@ -98,16 +98,15 @@ export function DashboardOverview() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header Description (Title moved to main app header) */}
       <div className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_#000] p-6 rounded-lg dark:bg-gray-800 dark:border-black dark:shadow-[8px_8px_0px_0px_#000]">
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h2>
-        <p className="text-gray-600 mt-1 dark:text-gray-400">Overview of prediction market opportunities</p>
+        <p className="text-gray-600 font-medium mt-1 dark:text-white">Overview of prediction market opportunities</p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {stats.map((stat, index) => (
-          <div key={index} className="bg-white rounded-lg border-4 border-black p-6 shadow-[8px_8px_0px_0px_#000] hover:shadow-[4px_4px_0px_0px_#000] hover:translate-x-[4px] hover:translate-y-[4px] transition-all dark:bg-gray-800 dark:border-black dark:shadow-[8px_8px_0px_0px_#000] dark:hover:shadow-[4px_4px_0px_0px_#000]">
+          <div key={index} className="bg-white rounded-lg border-4 border-black p-4 md:p-6 shadow-[8px_8px_0px_0px_#000] hover:shadow-[4px_4px_0px_0px_#000] hover:translate-x-[4px] hover:translate-y-[4px] transition-all dark:bg-gray-800 dark:border-black dark:shadow-[8px_8px_0px_0px_#000] dark:hover:shadow-[4px_4px_0px_0px_#000]">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-bold text-gray-600 uppercase tracking-wider dark:text-gray-400">{stat.title}</p>

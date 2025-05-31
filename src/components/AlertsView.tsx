@@ -30,8 +30,8 @@ export function AlertsView() {
       <div className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_#000] p-6 rounded-lg dark:bg-gray-800 dark:border-black dark:shadow-[8px_8px_0px_0px_#000]">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Alerts</h2>
-            <p className="text-gray-600 mt-1 font-medium dark:text-gray-400">
+            {/* Title moved to main app header */}
+            <p className="text-gray-600 mt-1 font-medium dark:text-white">
               {unreadAlerts.length} unread alerts
             </p>
           </div>

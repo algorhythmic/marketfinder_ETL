@@ -58,8 +58,8 @@ export function ArbitrageView() {
       <div className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_#000] p-6 rounded-lg dark:bg-gray-800 dark:border-black dark:shadow-[8px_8px_0px_0px_#000]">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Arbitrage Opportunities</h2>
-            <p className="text-gray-600 mt-1 font-medium dark:text-gray-400">Real-time profit opportunities across platforms</p>
+            {/* Title moved to main app header */}
+            <p className="text-gray-600 mt-1 font-medium dark:text-white">Real-time profit opportunities across platforms</p>
           </div>
           <div className="flex items-center space-x-4">
             <label className="text-sm font-bold text-gray-700 uppercase tracking-wider dark:text-gray-300">Min Profit:</label>
