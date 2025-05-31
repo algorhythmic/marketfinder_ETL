@@ -19,7 +19,7 @@ export default {
       },
       boxShadow: {
         'neo-glow-dark': '0 0 15px rgba(41, 237, 94, 0.8)',
-        'neo-glow-border': '0 0 0 1px rgba(41, 237, 94, 0.8), 0 0 10px 2px rgba(41, 237, 94, 0.6)',
+        'neo-glow-border': '0 0 0 1px rgba(41, 237, 94, 0.8), 0 0 20px 2px rgba(41, 237, 94, 0.6)',
       },
       backgroundImage: {
         'market-gradient': 'linear-gradient(90deg, #29903B 0%, #4CAF50 50%, #8BC34A 100%)',

@@ -33,14 +33,14 @@ export function SignInForm() {
         }}
       >
         <input
-          className="w-full px-4 py-3 bg-black/70 border-2 border-[#29903B]/50 text-white placeholder-gray-400 font-sans focus:outline-none focus:border-[#4CAF50] focus:ring-1 focus:ring-[#4CAF50] rounded transition-all duration-200"
+          className="w-full px-4 py-3 bg-black/40 border-2 border-[#29903B]/50 text-white placeholder-gray-400 font-sans focus:outline-none focus:border-[#4CAF50] focus:ring-1 focus:ring-[#4CAF50] rounded transition-all duration-200"
           type="email"
           name="email"
           placeholder="EMAIL"
           required
         />
         <input
-          className="w-full px-4 py-3 bg-black/70 border-2 border-[#29903B]/50 text-white placeholder-gray-400 font-sans focus:outline-none focus:border-[#4CAF50] focus:ring-1 focus:ring-[#4CAF50] rounded transition-all duration-200"
+          className="w-full px-4 py-3 bg-black/40 border-2 border-[#29903B]/50 text-white placeholder-gray-400 font-sans focus:outline-none focus:border-[#4CAF50] focus:ring-1 focus:ring-[#4CAF50] rounded transition-all duration-200"
           type="password"
           name="password"
           placeholder="PASSWORD"
@@ -72,9 +72,9 @@ export function SignInForm() {
         </div>
       </form>
       <div className="flex items-center justify-center my-6">
-        <hr className="grow border-[#29903B]/30" />
+        <hr className="grow border-[#29903B]/30 drop-shadow-[0_0_3px_rgba(41,144,59,0.5)]" />
         <span className="mx-4 text-gray-400 font-sans text-sm">OR</span>
-        <hr className="grow border-[#29903B]/30" />
+        <hr className="grow border-[#29903B]/30 drop-shadow-[0_0_3px_rgba(41,144,59,0.5)]" />
       </div>
       <button 
         className="w-full px-4 py-3 bg-transparent text-white font-sans font-bold border-2 border-[#4CAF50] hover:bg-[#1e7a2e]/20 hover:border-[#4CAF50] transition-all duration-300 rounded-md hover:shadow-[0_0_15px_rgba(41,144,59,0.3)]" 
