@@ -27,7 +27,7 @@ export function AlertsView() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_#000] p-6 rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:shadow-[8px_8px_0px_0px_#000]">
+      <div className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_#000] p-6 rounded-lg dark:bg-gray-800 dark:border-black dark:shadow-[8px_8px_0px_0px_#000]">
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Alerts</h2>
@@ -38,7 +38,7 @@ export function AlertsView() {
           {selectedAlerts.length > 0 && (
             <button
               onClick={() => void handleMarkAsRead()}
-              className="bg-blue-300 text-black px-4 py-2 rounded-md border-2 border-black shadow-[4px_4px_0px_0px_#000] hover:shadow-[2px_2px_0px_0px_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all font-bold dark:bg-blue-600 dark:text-white dark:border-blue-500 dark:shadow-[4px_4px_0px_0px_#000] dark:hover:shadow-[2px_2px_0px_0px_#000]"
+              className="bg-blue-300 text-black px-4 py-2 rounded-md border-2 border-black shadow-[4px_4px_0px_0px_#000] hover:shadow-[2px_2px_0px_0px_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all font-bold dark:bg-blue-600 dark:text-white dark:border-black dark:shadow-[4px_4px_0px_0px_#000] dark:hover:shadow-[2px_2px_0px_0px_#000]"
             >
               Mark {selectedAlerts.length} as Read
             </button>
@@ -51,7 +51,7 @@ export function AlertsView() {
         {alerts?.map((alert) => (
           <div
             key={alert._id}
-            className={`bg-white rounded-lg border-4 border-black p-6 shadow-[8px_8px_0px_0px_#000] cursor-pointer transition-all hover:shadow-[4px_4px_0px_0px_#000] hover:translate-x-[4px] hover:translate-y-[4px] dark:bg-gray-800 dark:border-gray-700 dark:shadow-[8px_8px_0px_0px_#000] dark:hover:shadow-[4px_4px_0px_0px_#000] ${
+            className={`bg-white rounded-lg border-4 border-black p-6 shadow-[8px_8px_0px_0px_#000] cursor-pointer transition-all hover:shadow-[4px_4px_0px_0px_#000] hover:translate-x-[4px] hover:translate-y-[4px] dark:bg-gray-800 dark:border-black dark:shadow-[8px_8px_0px_0px_#000] dark:hover:shadow-[4px_4px_0px_0px_#000] ${
               alert.isRead 
                 ? "opacity-75 dark:opacity-60" 
                 : "bg-yellow-50 dark:bg-yellow-400/10"
@@ -66,7 +66,7 @@ export function AlertsView() {
                   type="checkbox"
                   checked={selectedAlerts.includes(alert._id)}
                   onChange={() => toggleAlert(alert._id)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-blue-600 dark:ring-offset-gray-800"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded dark:border-black dark:bg-gray-700 dark:focus:ring-blue-600 dark:ring-offset-gray-800"
                 />
               </div>
               <div className="flex-1 min-w-0">
@@ -78,9 +78,9 @@ export function AlertsView() {
                   </span>
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{alert.title}</h3>
                   <span className={`px-2 py-1 rounded border-2 border-black text-xs font-bold uppercase tracking-wider ${
-                    alert.type === "arbitrage" ? "bg-green-300 text-green-800 dark:bg-green-700 dark:text-green-200 dark:border-green-500" :
-                    alert.type === "price_change" ? "bg-blue-300 text-blue-800 dark:bg-blue-700 dark:text-blue-200 dark:border-blue-500" :
-                    "bg-gray-300 text-gray-800 dark:bg-gray-600 dark:text-gray-200 dark:border-gray-500"
+                    alert.type === "arbitrage" ? "bg-green-300 text-green-800 dark:bg-green-700 dark:text-green-200 dark:border-black" :
+                    alert.type === "price_change" ? "bg-blue-300 text-blue-800 dark:bg-blue-700 dark:text-blue-200 dark:border-black" :
+                    "bg-gray-300 text-gray-800 dark:bg-gray-600 dark:text-gray-200 dark:border-black"
                   }`}>
                     {alert.type.replace("_", " ")}
                   </span>
@@ -91,7 +91,7 @@ export function AlertsView() {
                     {new Date(alert.createdAt).toLocaleString()}
                   </span>
                   {!alert.isRead && (
-                    <span className="w-3 h-3 bg-red-500 rounded-full border-2 border-black dark:border-gray-900"></span>
+                    <span className="w-3 h-3 bg-red-500 rounded-full border-2 border-black dark:border-black"></span>
                   )}
                 </div>
               </div>
@@ -101,7 +101,7 @@ export function AlertsView() {
       </div>
 
       {!alerts?.length && (
-        <div className="text-center py-12 bg-white border-4 border-black rounded-lg shadow-[8px_8px_0px_0px_#000] dark:bg-gray-800 dark:border-gray-700 dark:shadow-[8px_8px_0px_0px_#000]">
+        <div className="text-center py-12 bg-white border-4 border-black rounded-lg shadow-[8px_8px_0px_0px_#000] dark:bg-gray-800 dark:border-black dark:shadow-[8px_8px_0px_0px_#000]">
           <div className="text-gray-400 text-6xl mb-4 dark:text-gray-500">🔔</div>
           <h3 className="text-lg font-bold text-gray-900 mb-2 dark:text-white">No Alerts</h3>
           <p className="text-gray-500 font-medium dark:text-gray-400">You'll receive alerts here when opportunities are detected</p>

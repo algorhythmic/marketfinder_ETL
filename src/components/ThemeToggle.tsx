@@ -36,7 +36,7 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       onClick={toggleTheme}
-      className="h-8 w-8 border-2 border-black bg-white hover:bg-yellow-300 dark:bg-gray-800 dark:border-white dark:hover:bg-gray-700"
+      className="h-8 w-8 border-2 border-black bg-white hover:bg-yellow-300 dark:bg-gray-800 dark:border-black dark:hover:bg-gray-700"
     >
       {isDark ? (
         <Sun className="h-4 w-4 text-black dark:text-white" />

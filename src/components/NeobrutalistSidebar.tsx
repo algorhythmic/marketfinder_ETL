@@ -121,7 +121,7 @@ export function NeobrutalistSidebar({ activeView, onViewChange, onMobileNavItemC
                   <SidebarMenuButton 
                     asChild
                     isActive={activeView === item.view}
-                    className="hover:bg-yellow-300 data-[active=true]:bg-yellow-300 data-[active=true]:border-2 data-[active=true]:border-black data-[active=true]:shadow-[2px_2px_0px_0px_#000] dark:text-gray-300 dark:hover:bg-gray-700 dark:data-[active=true]:bg-gray-600 dark:data-[active=true]:text-white dark:data-[active=true]:border-gray-500 dark:data-[active=true]:shadow-[2px_2px_0px_0px_#374151]"
+                    className="hover:bg-yellow-300 data-[active=true]:bg-yellow-300 data-[active=true]:border-2 data-[active=true]:border-black data-[active=true]:shadow-[2px_2px_0px_0px_#000] dark:text-gray-300 dark:hover:bg-gray-700 dark:data-[active=true]:bg-gray-600 dark:data-[active=true]:text-white dark:data-[active=true]:border-black dark:data-[active=true]:shadow-[2px_2px_0px_0px_#000]"
                   >
                     <button 
                       onClick={() => {
@@ -154,11 +154,11 @@ export function NeobrutalistSidebar({ activeView, onViewChange, onMobileNavItemC
           <SidebarMenuItem className="flex justify-center">
             <SidebarMenuButton 
               size="lg"
-              className={`hover:bg-blue-400 border-2 border-black shadow-[2px_2px_0px_0px_#000] dark:text-gray-300 dark:hover:bg-gray-700 dark:border-gray-600 dark:shadow-[2px_2px_0px_0px_#374151] ${
+              className={`hover:bg-blue-400 border-2 border-black shadow-[2px_2px_0px_0px_#000] dark:text-gray-300 dark:hover:bg-gray-700 dark:border-black dark:shadow-[2px_2px_0px_0px_#000] ${
                 isCollapsed ? 'w-8 h-8 mx-auto' : ''
               } flex items-center justify-center`}
             >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-black text-white dark:bg-gray-700 dark:text-gray-200 dark:border-gray-500 flex-shrink-0">
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-black text-white dark:bg-gray-700 dark:text-gray-200 dark:border-black flex-shrink-0">
                 <User2 className="size-4" />
               </div>
               {!isCollapsed && (

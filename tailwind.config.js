@@ -5,6 +5,10 @@ export default {
   theme: {
     extend: {
       colors: {
+        input: {
+          DEFAULT: '#D1D5DB', // gray-300
+          dark: '#000000',
+        },
         primary: {
           DEFAULT: "#3b82f6",
           hover: "#2563eb",
