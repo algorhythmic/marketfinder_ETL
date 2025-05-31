@@ -1,6 +1,6 @@
+import { useEffect } from "react"; // Added useEffect
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useEffect } from "react";
 
 export function DashboardOverview() {
   const initializePlatforms = useMutation(api.platforms.initializePlatforms);
@@ -21,10 +21,49 @@ export function DashboardOverview() {
     void init();
   }, [initializePlatforms, addSampleData, createSampleAlerts]);
   
-  const arbitrageStats = useQuery(api.arbitrage.getArbitrageStats);
-  const trendingMarkets = useQuery(api.markets.getTrendingMarkets, { limit: 10 });
-  const marketsByCategory = useQuery(api.markets.getMarketsByCategory);
-  const platforms = useQuery(api.platforms.getPlatformStatus);
+  // const arbitrageStats = useQuery(api.arbitrage.getArbitrageStats);
+  // const trendingMarkets = useQuery(api.markets.getTrendingMarkets, { limit: 10 });
+  // const marketsByCategory = useQuery(api.markets.getMarketsByCategory);
+  // const platforms = useQuery(api.platforms.getPlatformStatus);
+
+  const mockArbitrageStats = {
+    activeCount: 15,
+    averageProfit: 8.3,
+    topOpportunities: [
+      { groupId: "Crypto", buyPrice: 0.30, sellPrice: 0.35, profitMargin: 16.7 },
+      { groupId: "Stocks", buyPrice: 0.50, sellPrice: 0.57, profitMargin: 14.0 },
+      { groupId: "Sports", buyPrice: 0.70, sellPrice: 0.79, profitMargin: 12.9 },
+    ],
+  };
+
+  const mockTrendingMarkets = [
+    { _id: "trend1", title: "Global AI Chip Supremacy by 2026", category: "Technology", totalVolume: 2500000 },
+    { _id: "trend2", title: "Next UK Prime Minister", category: "Politics", totalVolume: 1800000 },
+    { _id: "trend3", title: "Commercial Moon Base by 2035", category: "Space", totalVolume: 1200000 },
+    { _id: "trend4", title: "Global Average Temperature to Exceed 1.5C by 2028", category: "Climate", totalVolume: 950000 },
+    { _id: "trend5", title: "World Cup 2026 Winner", category: "Sports", totalVolume: 3000000 },
+  ];
+
+  const mockMarketsByCategory = [
+    { name: "Politics", count: 150, totalVolume: 12500000 },
+    { name: "Technology", count: 120, totalVolume: 9800000 },
+    { name: "Finance", count: 90, totalVolume: 15200000 },
+    { name: "Sports", count: 200, totalVolume: 22000000 },
+    { name: "Science", count: 70, totalVolume: 6500000 },
+  ];
+
+  const mockPlatforms = [
+    { _id: "platform1", displayName: "Kalshi", syncStatus: "active", lastSync: new Date('2025-05-31T08:55:00Z').getTime() },
+    { _id: "platform2", displayName: "Polymarket", syncStatus: "active", lastSync: new Date('2025-05-31T08:50:00Z').getTime() },
+    { _id: "platform3", displayName: "PredictIt", syncStatus: "error", lastSync: new Date('2025-05-30T12:00:00Z').getTime() },
+    { _id: "platform4", displayName: "Manifold", syncStatus: "syncing", lastSync: new Date('2025-05-31T08:58:00Z').getTime() },
+    { _id: "platform5", displayName: "Futuur", syncStatus: "active", lastSync: new Date('2025-05-31T08:45:00Z').getTime() },
+  ];
+
+  const arbitrageStats = mockArbitrageStats;
+  const trendingMarkets = mockTrendingMarkets;
+  const marketsByCategory = mockMarketsByCategory;
+  const platforms = mockPlatforms;
 
   const stats = [
     {
@@ -50,7 +89,7 @@ export function DashboardOverview() {
     },
     {
       title: "Platforms",
-      value: platforms?.filter(p => p.isActive).length || 0,
+      value: platforms?.filter(p => p.syncStatus === "active").length || 0,
       change: "0%",
       positive: true,
       icon: "🔗",

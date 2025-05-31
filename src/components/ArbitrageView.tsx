@@ -1,13 +1,56 @@
-import { useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
 import { useState } from "react";
 
 export function ArbitrageView() {
   const [minProfitMargin, setMinProfitMargin] = useState(2);
-  const opportunities = useQuery(api.arbitrage.getArbitrageOpportunities, {
-    minProfitMargin,
-    limit: 100,
-  });
+  // const opportunities = useQuery(api.arbitrage.getArbitrageOpportunities, {
+  //   minProfitMargin,
+  //   limit: 100,
+  // });
+
+  const mockOpportunities = [
+    {
+      _id: "mock1",
+      group: { name: "US Election 2024", category: "Politics" },
+      buyMarket: { platform: { displayName: "Kalshi" }, title: "Candidate A to win US Presidency" },
+      sellMarket: { platform: { displayName: "Polymarket" }, title: "Candidate A to win US Presidency" },
+      profitMargin: 12.5,
+      buyPrice: 0.40,
+      sellPrice: 0.45,
+      detectedAt: new Date('2025-05-30T10:00:00Z').getTime(),
+    },
+    {
+      _id: "mock2",
+      group: { name: "Stock Market Futures", category: "Finance" },
+      buyMarket: { platform: { displayName: "PredictIt" }, title: "S&P 500 to close above 5500 by EOY" },
+      sellMarket: { platform: { displayName: "Manifold" }, title: "S&P 500 > 5500 end of 2025" },
+      profitMargin: 7.2,
+      buyPrice: 0.65,
+      sellPrice: 0.70,
+      detectedAt: new Date('2025-05-31T08:30:00Z').getTime(),
+    },
+    {
+      _id: "mock3",
+      group: { name: "Premier League Winner", category: "Sports" },
+      buyMarket: { platform: { displayName: "Insight Prediction" }, title: "Manchester City to win Premier League" },
+      sellMarket: { platform: { displayName: "Futuur" }, title: "Manchester City wins Premier League 2024/25" },
+      profitMargin: 3.1,
+      buyPrice: 0.30,
+      sellPrice: 0.31,
+      detectedAt: new Date('2025-05-31T09:15:00Z').getTime(),
+    },
+    {
+      _id: "mock4",
+      group: { name: "Tech Innovations", category: "Technology" },
+      buyMarket: { platform: { displayName: "Kalshi" }, title: "AGI by 2030" },
+      sellMarket: { platform: { displayName: "Polymarket" }, title: "Artificial General Intelligence by 2030" },
+      profitMargin: 15.0,
+      buyPrice: 0.10,
+      sellPrice: 0.115,
+      detectedAt: new Date('2025-05-29T14:00:00Z').getTime(),
+    }
+  ];
+
+  const opportunities = mockOpportunities.filter(opp => opp.profitMargin >= minProfitMargin);
 
   return (
     <div className="space-y-6">

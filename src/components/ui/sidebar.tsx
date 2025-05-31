@@ -5,6 +5,7 @@ import { PanelLeft } from "lucide-react"
 
 import { cn } from "../../lib/utils"
 import { Button } from "./button"
+// import { Dialog, DialogContent, DialogOverlay, DialogTrigger as _DialogTrigger } from "./dialog" // TODO: Resolve Dialog component import/creation
 
 const SIDEBAR_COOKIE_NAME = "sidebar:state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -14,14 +15,19 @@ const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
 type SidebarContext = {
-  state: "expanded" | "collapsed"
-  open: boolean
-  setOpen: (open: boolean) => void
-  openMobile: boolean
-  setOpenMobile: (open: boolean) => void
+  state: "expanded" | "collapsed" // Reflects true visual state (expanded/collapsed) for current mode (desktop/mobile)
+  open: boolean // For desktop: actual open state. For mobile: if overlay is open.
+  setOpen: (open: boolean | ((prevState: boolean) => boolean)) => void // For desktop: sets actual open. For mobile: sets overlay open.
+  openMobile: boolean // Raw state of mobile overlay (kept for clarity, though `open` serves this on mobile)
+  setOpenMobile: (open: boolean | ((prevState: boolean) => boolean)) => void // Raw setter for mobile overlay
   isMobile: boolean
   toggleSidebar: () => void
 }
+
+// Define SidebarContentProps based on SidebarContent's expected props
+type SidebarContentProps = React.ComponentProps<"div"> & {
+  isIconOnly?: boolean;
+};
 
 const SidebarContext = React.createContext<SidebarContext | null>(null)
 
@@ -54,32 +60,53 @@ const SidebarProvider = React.forwardRef<
     },
     ref
   ) => {
-    const [openMobile, setOpenMobile] = React.useState(false)
+    const [openMobile, _setOpenMobile] = React.useState(false)
     const [isMobile, setIsMobile] = React.useState(false)
+
+    React.useEffect(() => {
+      const checkMobile = () => setIsMobile(window.innerWidth < 768); // md breakpoint (768px)
+      checkMobile();
+      window.addEventListener("resize", checkMobile);
+      return () => window.removeEventListener("resize", checkMobile);
+    }, []);
 
     // This is the internal state of the sidebar.
     // We use openProp and setOpenProp for control from outside the component.
-    const [_open, _setOpen] = React.useState(defaultOpen)
-    const open = openProp ?? _open
-    const setOpen = React.useCallback(
-      (value: boolean | ((value: boolean) => boolean)) => {
-        const openState = typeof value === "function" ? value(open) : value
-        if (setOpenProp) {
-          setOpenProp(openState)
-        } else {
-          _setOpen(openState)
-        }
+    const [_openDesktop, _setOpenDesktop] = React.useState(defaultOpen)
+    const openDesktop = openProp ?? _openDesktop; // Explicitly for desktop state
+    const setOpenDesktopCookie = React.useCallback((desktopState: boolean) => {
+      document.cookie = `${SIDEBAR_COOKIE_NAME}=${desktopState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+    }, []);
 
-        // This sets the cookie to keep the sidebar state.
-        document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+    const setOpenDesktop = React.useCallback(
+      (value: boolean | ((prevState: boolean) => boolean)) => {
+        const newState = typeof value === "function" ? value(openDesktop) : value;
+        if (setOpenProp) { // If controlled from outside for desktop
+          setOpenProp(newState);
+        } else {
+          _setOpenDesktop(newState);
+        }
+        setOpenDesktopCookie(newState);
       },
-      [setOpenProp, open]
-    )
+      [setOpenProp, openDesktop, _setOpenDesktop, setOpenDesktopCookie]
+    );
+
+    const setOpenMobile = React.useCallback(
+      (value: boolean | ((prevState: boolean) => boolean)) => {
+        _setOpenMobile(typeof value === 'function' ? value(openMobile) : value);
+        // Mobile state is not typically persisted in a cookie the same way
+      },
+      [openMobile, _setOpenMobile]
+    );
 
     // Helper to toggle the sidebar.
     const toggleSidebar = React.useCallback(() => {
-      return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open)
-    }, [isMobile, setOpen, setOpenMobile])
+      if (isMobile) {
+        setOpenMobile(prev => !prev);
+      } else {
+        setOpenDesktop(prev => !prev);
+      }
+    }, [isMobile, setOpenMobile, setOpenDesktop]);
 
     // Adds a keyboard shortcut to toggle the sidebar.
     React.useEffect(() => {
@@ -97,22 +124,23 @@ const SidebarProvider = React.forwardRef<
       return () => window.removeEventListener("keydown", handleKeyDown)
     }, [toggleSidebar])
 
-    // We add a state so that we can do data-state="expanded" or "collapsed".
-    // This makes it easier to style the sidebar with Tailwind classes.
-    const state = open ? "expanded" : "collapsed"
+    // Determine effective state, open status, and setter for the context
+    const effectiveState = isMobile ? (openMobile ? "expanded" : "collapsed") : (openDesktop ? "expanded" : "collapsed");
+    const effectiveOpen = isMobile ? openMobile : openDesktop;
+    const effectiveSetOpen = isMobile ? setOpenMobile : setOpenDesktop;
 
     const contextValue = React.useMemo<SidebarContext>(
       () => ({
-        state,
-        open,
-        setOpen,
+        state: effectiveState,
+        open: effectiveOpen,
+        setOpen: effectiveSetOpen,
         isMobile,
-        openMobile,
-        setOpenMobile,
+        openMobile, // Keep raw mobile state for specific needs if any
+        setOpenMobile, // Keep raw mobile setter
         toggleSidebar,
       }),
-      [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
-    )
+      [effectiveState, effectiveOpen, effectiveSetOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
+    );
 
     return (
       <SidebarContext.Provider value={contextValue}>
@@ -121,6 +149,8 @@ const SidebarProvider = React.forwardRef<
             {
               "--sidebar-width": SIDEBAR_WIDTH,
               "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
+              "--sidebar-width-mobile": SIDEBAR_WIDTH_MOBILE, // Used by offcanvas mobile
+              "--sidebar-mobile-expanded-inline-width": "14rem", // For new inline mobile expanded state
               ...style,
             } as React.CSSProperties
           }
@@ -142,84 +172,160 @@ SidebarProvider.displayName = "SidebarProvider"
 const Sidebar = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
-    variant?: "sidebar" | "floating" | "inset"
-    collapsible?: "offcanvas" | "icon" | "none"
+    variant?: "sidebar" | "floating" | "inset";
+    collapsible?: "offcanvas" | "icon" | "none"; // This is a prop for Sidebar itself
   }
 >(
   (
     {
       variant = "sidebar",
-      collapsible = "offcanvas",
+      collapsible = "offcanvas", // Default collapsible type for this component instance
       className,
       children,
       ...props
     },
     ref
   ) => {
-    const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+    const { isMobile, state, setOpen: _setOpen } = useSidebar(); // Context provides general state, not this specific instance's collapsible type. _setOpen is unused here since Dialog is commented out.
 
+    // 1. Handle "none" collapsible type (always expanded on desktop, hidden on mobile)
     if (collapsible === "none") {
       return (
         <div
+          data-state="expanded" // For "none", visual state is always expanded
+          data-variant={variant}
           className={cn(
-            "flex h-full w-[--sidebar-width] flex-col bg-white border-4 border-black shadow-[8px_8px_0px_0px_#000] dark:shadow-[8px_8px_0px_0px_#000]",
+            "hidden h-full md:flex md:flex-col", // Default: hidden on mobile, flex on desktop
+            variant === "sidebar" && !(className?.includes("border")) && "border-r", // Only add border-r if not already in className
+            variant === "floating" && "m-4 rounded-lg border bg-background shadow-lg",
+            variant === "inset" && "bg-background",
+            "w-[var(--sidebar-width)]", // Always full desktop width
             className
           )}
           ref={ref}
           {...props}
         >
-          {children}
+          {React.Children.map(children, (child) => {
+            if (React.isValidElement(child) && child.type === SidebarContent) {
+              return React.cloneElement(child as React.ReactElement<SidebarContentProps>,
+                {
+                  isIconOnly: false, // Content is never icon-only
+                }
+              );
+            }
+            return child;
+          })}
         </div>
-      )
+      );
     }
 
+    // 2. Handle mobile-specific behaviors
     if (isMobile) {
-      return (
-        <div
-          className={cn(
-            "fixed inset-0 z-50 md:hidden",
-            openMobile ? "block" : "hidden"
-          )}
-        >
+      if (collapsible === "offcanvas") {
+        // Mobile "offcanvas" as an overlay using Dialog
+        // Mobile "offcanvas" as an overlay using Dialog
+        // TODO: This section will not work until Dialog components are correctly imported/created.
+        console.warn("Dialog components not found, mobile offcanvas sidebar will not work.");
+        return (
+          <div className="hidden">
+            Mobile offcanvas sidebar is currently disabled due to missing Dialog components.
+          </div>
+        );
+        /* Original Dialog-based code:
+        return (
+          <Dialog open={state === "expanded"} onOpenChange={setOpen}>
+            <DialogOverlay className="md:hidden" /> 
+            <DialogContent
+              side="left"
+              className={cn(
+                "h-full w-[var(--sidebar-width-mobile)] p-0 md:hidden",
+                className
+              )}
+            >
+              {React.Children.map(children, (child) => {
+                if (React.isValidElement(child) && child.type === SidebarContent) {
+                  return React.cloneElement(child as React.ReactElement<SidebarContentProps>,
+                    {
+                      isIconOnly: false,
+                    }
+                  );
+                }
+                return child;
+              })}
+            </DialogContent>
+          </Dialog>
+        );
+        */
+      } else if (collapsible === "icon") {
+        // Mobile "icon" collapsible: Renders INLINE, not as an overlay
+        const widthClass = state === "expanded" ? "w-[var(--sidebar-mobile-expanded-inline-width)]" : "w-[var(--sidebar-width-icon)]";
+        const isContentIconOnly = state === "collapsed";
+        return (
           <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setOpenMobile(false)}
-          />
-          <div
+            data-state={state}
+            data-variant={variant}
             className={cn(
-              "fixed left-0 top-0 h-full w-[--sidebar-width-mobile] bg-white border-4 border-black shadow-[8px_8px_0px_0px_#000] dark:shadow-[8px_8px_0px_0px_#000] transition-transform duration-200 ease-in-out",
-              openMobile ? "translate-x-0" : "-translate-x-full",
+              "h-full flex flex-col", // Always present and flex column on mobile for 'icon' type
+              "transition-all duration-300 ease-in-out", // Smooth width changes
+              variant === "sidebar" && !(className?.includes("border")) && "border-r", // Only add border-r if not already in className
+              variant === "floating" && "m-4 rounded-lg border bg-background shadow-lg",
+              variant === "inset" && "bg-background",
+              widthClass,
               className
             )}
             ref={ref}
             {...props}
           >
-            {children}
+            {React.Children.map(children, (child) => {
+              if (React.isValidElement(child) && child.type === SidebarContent) {
+                return React.cloneElement(child as React.ReactElement<SidebarContentProps>,
+                  {
+                    isIconOnly: isContentIconOnly,
+                  }
+                );
+              }
+              return child;
+            })}
           </div>
-        </div>
-      )
+        );
+      }
     }
+
+    // 3. Desktop behavior (collapsible "icon" or "offcanvas" are both treated as inline)
+    // This block is reached if !isMobile
+    const widthClass = state === "expanded" ? "w-[var(--sidebar-width)]" : "w-[var(--sidebar-width-icon)]";
+    const isContentIconOnly = state === "collapsed";
 
     return (
       <div
-        ref={ref}
         data-state={state}
-        data-collapsible={state === "collapsed" ? collapsible : ""}
+        data-variant={variant}
         className={cn(
-          "relative h-svh w-[--sidebar-width] bg-white border-4 border-black shadow-[8px_8px_0px_0px_#000] dark:shadow-[8px_8px_0px_0px_#000] transition-[width] duration-200 ease-linear",
-          "group-data-[collapsible=offcanvas]:w-0",
-          "group-data-[collapsible=icon]:w-[--sidebar-width-icon]",
+          "hidden h-full md:flex md:flex-col", // Standard desktop visibility
+          "transition-all duration-300 ease-in-out", // Smooth width changes
+          variant === "sidebar" && !(className?.includes("border")) && "border-r", // Only add border-r if not already in className
+          variant === "floating" && "m-4 rounded-lg border bg-background shadow-lg",
+          variant === "inset" && "bg-background",
+          widthClass,
           className
         )}
+        ref={ref}
         {...props}
       >
-        <div className="flex h-full w-full flex-col overflow-hidden">
-          {children}
-        </div>
+        {React.Children.map(children, (child) => {
+          if (React.isValidElement(child) && child.type === SidebarContent) {
+            return React.cloneElement(child as React.ReactElement<SidebarContentProps>,
+              {
+                isIconOnly: isContentIconOnly,
+              }
+            );
+          }
+          return child;
+        })}
       </div>
-    )
+    );
   }
-)
+);
 Sidebar.displayName = "Sidebar"
 
 const SidebarTrigger = React.forwardRef<
@@ -279,15 +385,17 @@ SidebarRail.displayName = "SidebarRail"
 const SidebarInset = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div">
->(({ className, ...props }, ref) => {
+>(({ className, style: styleProp, ...props }, ref) => {
+  const style = {
+    ...styleProp,
+  };
+
   return (
-    <main
+    <div
       ref={ref}
-      className={cn(
-        "relative flex min-h-svh flex-1 flex-col bg-white",
-        "peer-data-[variant=inset]:min-h-[calc(100svh-theme(spacing.4))] md:peer-data-[variant=inset]:m-2 md:peer-data-[state=collapsed]:peer-data-[variant=inset]:ml-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm",
-        className
-      )}
+      data-sidebar="content"
+      className={cn("flex-1", className)} // Base styling, padding handled by style prop
+      style={style}
       {...props}
     />
   )
@@ -359,14 +467,17 @@ SidebarSeparator.displayName = "SidebarSeparator"
 
 const SidebarContent = React.forwardRef<
   HTMLDivElement,
-  React.ComponentProps<"div">
->(({ className, ...props }, ref) => {
+  React.ComponentProps<"div"> & {
+    isIconOnly?: boolean
+  }
+>(({ className, isIconOnly = false, ...props }, ref) => {
   return (
     <div
       ref={ref}
       data-sidebar="content"
       className={cn(
         "flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden",
+        isIconOnly && "group-data-[collapsible=icon]:overflow-hidden",
         className
       )}
       {...props}
@@ -510,7 +621,7 @@ const SidebarMenuButton = React.forwardRef<
   React.ComponentProps<"button"> & {
     asChild?: boolean
     isActive?: boolean
-    tooltip?: string | React.ComponentProps<typeof TooltipContent>
+    tooltip?: string | React.ComponentProps<typeof _TooltipContent>
   } & VariantProps<typeof sidebarMenuButtonVariants>
 >(
   (
@@ -699,9 +810,9 @@ const SidebarMenuSubButton = React.forwardRef<
 SidebarMenuSubButton.displayName = "SidebarMenuSubButton"
 
 // Dummy TooltipContent component since we don't have tooltip installed
-const TooltipContent = ({ children }: { children: React.ReactNode }) => (
-  <div>{children}</div>
-)
+function _TooltipContent({ children }: { children: React.ReactNode }) {
+  return <div>{children}</div>
+}
 
 export {
   Sidebar,

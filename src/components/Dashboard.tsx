@@ -6,7 +6,8 @@ import { MarketsView } from "./MarketsView"
 import { ArbitrageView } from "./ArbitrageView"
 import { MarketGroupsView } from "./MarketGroupsView"
 import { AlertsView } from "./AlertsView"
-import { SettingsView } from "./SettingsView"
+import { SettingsView } from "./SettingsView";
+import { AutomationView } from "./AutomationView"; // Added AutomationView import
 import { ThemeToggle } from "./ThemeToggle"
 import { SignOutButton } from "../SignOutButton"
 
@@ -26,7 +27,9 @@ export function Dashboard() {
       case "alerts":
         return <AlertsView />
       case "settings":
-        return <SettingsView />
+        return <SettingsView />;
+      case "automation": // Added case for AutomationView
+        return <AutomationView />;
       default:
         return <DashboardOverview />
     }
@@ -35,7 +38,7 @@ export function Dashboard() {
   return (
     <div className="flex h-screen overflow-hidden">
       <SidebarProvider>
-        <NeobrutalistSidebar activeView={activeView} onViewChange={setActiveView} />
+        <NeobrutalistSidebar activeView={activeView} onViewChange={setActiveView} className="border-4 border-black shadow-[8px_8px_0px_0px_#000] dark:border-gray-700 dark:shadow-[8px_8px_0px_0px_#1f2937]" />
         <SidebarInset className="flex flex-col flex-1 overflow-auto">
           <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-4 border-l-0 border-black bg-white px-4 dark:bg-gray-800 relative z-10">
             <div className="flex items-center gap-2">

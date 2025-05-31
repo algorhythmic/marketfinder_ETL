@@ -38,16 +38,39 @@ export const analyzeGroupForArbitrage = internalAction({
     // Compare all pairs of markets in the group
     for (let i = 0; i < memberships.length; i++) {
       for (let j = i + 1; j < memberships.length; j++) {
-        const market1 = memberships[i];
-        const market2 = memberships[j];
+        const fullMarket1 = memberships[i];
+        const fullMarket2 = memberships[j];
 
         // Skip if same platform (no arbitrage possible) or null markets
-        if (!market1 || !market2 || market1.platformId === market2.platformId) continue;
+        if (!fullMarket1 || !fullMarket2 || fullMarket1.platformId === fullMarket2.platformId) continue;
+
+        // Prepare market objects for the mutation, selecting only required fields
+        const preparedMarket1 = {
+          _id: fullMarket1._id,
+          platformId: fullMarket1.platformId,
+          outcomes: fullMarket1.outcomes.map(o => ({
+            id: o.id,
+            name: o.name,
+            price: o.price,
+            volume: o.volume, // volume is optional in validator
+          })),
+        };
+
+        const preparedMarket2 = {
+          _id: fullMarket2._id,
+          platformId: fullMarket2.platformId,
+          outcomes: fullMarket2.outcomes.map(o => ({
+            id: o.id,
+            name: o.name,
+            price: o.price,
+            volume: o.volume, // volume is optional in validator
+          })),
+        };
 
         await ctx.runMutation(internal.arbitrage.findArbitrageInMarketPair, {
           groupId: args.groupId,
-          market1,
-          market2,
+          market1: preparedMarket1,
+          market2: preparedMarket2,
         });
       }
     }
