@@ -1,12 +1,12 @@
 import { cronJobs } from "convex/server";
 import { internal } from "./_generated/api";
-import { internalAction } from "./_generated/server";
 
 
 
 const crons = cronJobs();
 
 // Cron jobs for background processing
+
 
 // Generate semantic groups every 30 minutes
 crons.interval("generate semantic groups", { minutes: 30 }, internal.semanticAnalysis.generateSemanticGroups, {});

@@ -1,4 +1,4 @@
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
@@ -66,6 +66,16 @@ export const listPlatforms = query({
       .query("platforms")
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
+  },
+});
+
+export const getPlatformByName = query({
+  args: { name: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("platforms")
+      .withIndex("by_name", (q) => q.eq("name", args.name))
+      .first();
   },
 });
 
