@@ -25,7 +25,7 @@ const applicationTables = {
     outcomes: v.array(v.object({
       id: v.string(),
       name: v.string(),
-      price: v.number(), // Current price (0-1 or 0-100 depending on platform)
+      price: v.number(),
       volume: v.optional(v.number()),
     })),
     endDate: v.optional(v.number()),

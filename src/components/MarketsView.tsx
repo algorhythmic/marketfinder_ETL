@@ -1,17 +1,19 @@
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useDebounce } from 'usehooks-ts';
 
 export function MarketsView() {
   const [selectedPlatform, setSelectedPlatform] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 300);
 
   const platforms = useQuery(api.platforms.listPlatforms);
   const markets = useQuery(api.markets.getMarkets, {
     platformId: selectedPlatform ? selectedPlatform as any : undefined,
     category: selectedCategory || undefined,
-    search: searchTerm || undefined,
+    search: debouncedSearch || undefined,
     limit: 50,
   });
 
@@ -76,7 +78,12 @@ export function MarketsView() {
           <div key={market._id} className="bg-white rounded-lg border-4 border-black p-6 shadow-[8px_8px_0px_0px_#000] hover:shadow-[4px_4px_0px_0px_#000] hover:translate-x-[4px] hover:translate-y-[4px] transition-all dark:bg-gray-800 dark:border-black dark:shadow-[8px_8px_0px_0px_#000] dark:hover:shadow-[4px_4px_0px_0px_#000]">
             <div className="flex justify-between items-start mb-4">
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-gray-900 mb-2 dark:text-white">{market.title}</h3>
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">{market.title}</h3>
+                  <span className="px-2 py-1 text-xs font-bold rounded border-2 border-black bg-blue-300 text-blue-800 dark:bg-blue-700 dark:text-blue-200">
+                    {market.platform?.displayName}
+                  </span>
+                </div>
                 <p className="text-sm text-gray-600 mb-2 font-medium dark:text-gray-400">{market.description}</p>
                 <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
                   <span className="bg-blue-300 text-blue-800 px-2 py-1 rounded border-2 border-black text-xs font-bold uppercase tracking-wider dark:bg-blue-700 dark:text-blue-200 dark:border-black">

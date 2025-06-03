@@ -13,44 +13,57 @@ export const getMarkets = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    let query = ctx.db.query("markets");
-
     if (args.search) {
-      return await ctx.db
+      let query = ctx.db
         .query("markets")
         .withSearchIndex("search_markets", (q) => {
           let searchQuery = q.search("title", args.search!);
-          if (args.platformId) searchQuery = searchQuery.eq("platformId", args.platformId);
-          if (args.category) searchQuery = searchQuery.eq("category", args.category);
-          if (args.status) searchQuery = searchQuery.eq("status", args.status);
+          if (args.platformId) {
+            searchQuery = searchQuery.eq("platformId", args.platformId);
+          }
+          if (args.category) {
+            searchQuery = searchQuery.eq("category", args.category);
+          }
+          if (args.status) {
+            searchQuery = searchQuery.eq("status", args.status);
+          }
           return searchQuery;
+        });
+
+      const markets = await query.collect();
+      
+      // Fetch platform info for each market
+      const marketsWithPlatforms = await Promise.all(
+        markets.map(async (market) => {
+          const platform = await ctx.db.get(market.platformId);
+          return { ...market, platform };
         })
-        .take(args.limit || 50);
+      );
+
+      return marketsWithPlatforms;
     }
+
+    let query = ctx.db.query("markets");
 
     if (args.platformId) {
-      return await ctx.db
-        .query("markets")
-        .withIndex("by_platform", (q) => q.eq("platformId", args.platformId!))
-        .order("desc")
-        .take(args.limit || 50);
+      query = query.withIndex("by_platform", (q) => q.eq("platformId", args.platformId));
     } else if (args.category) {
-      return await ctx.db
-        .query("markets")
-        .withIndex("by_category", (q) => q.eq("category", args.category))
-        .order("desc")
-        .take(args.limit || 50);
+      query = query.withIndex("by_category", (q) => q.eq("category", args.category));
     } else if (args.status) {
-      return await ctx.db
-        .query("markets")
-        .withIndex("by_status", (q) => q.eq("status", args.status!))
-        .order("desc")
-        .take(args.limit || 50);
+      query = query.withIndex("by_status", (q) => q.eq("status", args.status));
     }
 
-    return await query
-      .order("desc")
-      .take(args.limit || 50);
+    const markets = await query.order("desc").take(args.limit || 50);
+
+    // Fetch platform info for each market
+    const marketsWithPlatforms = await Promise.all(
+      markets.map(async (market) => {
+        const platform = await ctx.db.get(market.platformId);
+        return { ...market, platform };
+      })
+    );
+
+    return marketsWithPlatforms;
   },
 });
 
