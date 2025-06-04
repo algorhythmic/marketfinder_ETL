@@ -22,91 +22,114 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table" // Path to the shadcn table component
+} from "@/components/ui/table" 
 
 import { Button } from "@/components/ui/button"
 
-interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[]
-  data: TData[]
+// Assuming TData will have these properties, similar to MarketWithPlatform
+interface FilterableTData {
+  totalVolume?: number | null;
+  liquidity?: number | null;
+  endDate?: number | null; // Changed to number to match MarketWithPlatform (Unix timestamp in ms)
 }
 
-export function MarketDataTable<TData, TValue>({
+interface DataTableProps<TData extends FilterableTData, TValue> {
+  columns: ColumnDef<TData, TValue>[]
+  data: TData[]
+  externalGlobalFilter?: string 
+  volumeRangeFilter?: [number, number];
+  liquidityRangeFilter?: [number, number];
+  endDateFilter?: Date; // Added for end date filtering
+}
+
+export function MarketDataTable<TData extends FilterableTData, TValue>({
   columns,
   data,
+  externalGlobalFilter,
+  volumeRangeFilter,
+  liquidityRangeFilter,
+  endDateFilter, // Added prop
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [globalFilter, setGlobalFilter] = React.useState("") 
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = React.useState({})
 
+  React.useEffect(() => {
+    if (externalGlobalFilter !== undefined) {
+      setGlobalFilter(externalGlobalFilter);
+    }
+  }, [externalGlobalFilter]);
+
+  const processedData = React.useMemo(() => {
+    let filtered = data;
+
+    if (volumeRangeFilter) {
+      const [minVol, maxVol] = volumeRangeFilter;
+      filtered = filtered.filter(item => {
+        const volume = item.totalVolume ?? 0;
+        return volume >= minVol && volume <= maxVol;
+      });
+    }
+
+    if (liquidityRangeFilter) {
+      const [minLiq, maxLiq] = liquidityRangeFilter;
+      filtered = filtered.filter(item => {
+        const liquidity = item.liquidity ?? 0;
+        return liquidity >= minLiq && liquidity <= maxLiq;
+      });
+    }
+
+    if (endDateFilter) {
+      // Set the time of endDateFilter to the end of the day to include all markets ending on that day
+      const filterDateEnd = new Date(endDateFilter);
+      filterDateEnd.setHours(23, 59, 59, 999);
+
+      filtered = filtered.filter(item => {
+        if (item.endDate === undefined || item.endDate === null) return false; // Exclude if no end date
+        try {
+          // Assuming item.endDate is a Unix timestamp in milliseconds
+          const itemEndDate = new Date(item.endDate);
+          return itemEndDate <= filterDateEnd;
+        } catch (e) {
+          // This catch might be less relevant if item.endDate is strictly a number
+          console.error("Error creating Date from item.endDate:", item.endDate, e);
+          return false; // Exclude if date creation fails
+        }
+      });
+    }
+
+    return filtered;
+  }, [data, volumeRangeFilter, liquidityRangeFilter, endDateFilter]); // Added endDateFilter to dependencies
+
   const table = useReactTable({
-    data,
+    data: processedData, // Use processedData here
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(), // For client-side pagination
+    getPaginationRowModel: getPaginationRowModel(), 
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
-    getFilteredRowModel: getFilteredRowModel(), // For client-side filtering
+    getFilteredRowModel: getFilteredRowModel(), 
+    onGlobalFilterChange: setGlobalFilter, 
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     state: {
       sorting,
       columnFilters,
+      globalFilter, 
       columnVisibility,
       rowSelection,
     },
   })
 
-  // Neobrutalist styles for table container
   const tableContainerStyles = "bg-white border-4 border-black shadow-[8px_8px_0px_0px_#000] rounded-lg p-1 dark:bg-gray-800 dark:border-black dark:shadow-[8px_8px_0px_0px_#000]"
-  const buttonStyles = "font-bold text-black bg-yellow-300 hover:bg-yellow-400 border-2 border-black shadow-[2px_2px_0px_0px_#000] hover:shadow-[4px_4px_0px_0px_#000] active:shadow-[1px_1px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] dark:text-white dark:hover:bg-yellow-500"
-
+  const buttonStyles = "font-bold text-black bg-yellow-300 hover:bg-yellow-400 border-2 border-black shadow-[2px_2px_0px_0px_#000] hover:shadow-[4px_4px_0px_0px_#000] active:shadow-[1px_1px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] dark:text-black dark:hover:bg-yellow-500"
 
   return (
     <div className={tableContainerStyles}>
-      {/* Global filter and column visibility - We can add these if needed, for now focusing on existing filters */}
-      {/* Example for global filter (if we want client-side text search on table data) */}
-      {/* <div className="flex items-center py-4 px-2">
-        <Input
-          placeholder="Filter titles..."
-          value={(table.getColumn("title")?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn("title")?.setFilterValue(event.target.value)
-          }
-          className={`max-w-sm ${inputStyles}`}
-        />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className={`ml-auto ${buttonStyles}`}>
-              Columns
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-white border-2 border-black shadow-[4px_4px_0px_0px_#000] dark:bg-gray-800 dark:border-black">
-            {table
-              .getAllColumns()
-              .filter((column) => column.getCanHide())
-              .map((column) => {
-                return (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    className="capitalize hover:bg-yellow-300 dark:hover:bg-yellow-500"
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(value) =>
-                      column.toggleVisibility(!!value)
-                    }
-                  >
-                    {column.id}
-                  </DropdownMenuCheckboxItem>
-                )
-              })}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div> */}
-      
-      {/* Table */}
-      <div className="rounded-md border-2 border-black overflow-hidden dark:border-black"> {/* Inner border for table itself */}
+      <div className="rounded-md border-2 border-black overflow-hidden dark:border-black"> 
         <Table>
           <TableHeader className="bg-gray-200 dark:bg-gray-700">
             {table.getHeaderGroups().map((headerGroup) => (
@@ -158,7 +181,6 @@ export function MarketDataTable<TData, TValue>({
         </Table>
       </div>
 
-      {/* Pagination - Basic Example */}
       <div className="flex items-center justify-end space-x-2 py-4 px-2">
         <div className="flex-1 text-sm text-muted-foreground font-medium text-gray-600 dark:text-gray-400">
           {table.getFilteredSelectedRowModel().rows.length} of{" "}

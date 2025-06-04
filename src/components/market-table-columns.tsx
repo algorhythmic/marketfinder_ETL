@@ -20,7 +20,10 @@ import { Checkbox } from "@/components/ui/checkbox" // Assuming shadcn puts chec
 // You can use a Zod schema here if you want.
 export type Market = Doc<"markets">; // Using the Convex Doc type
 
-export const columns: ColumnDef<Market>[] = [
+// Extend Market type to include platformDisplayName, which is added in the getMarkets query
+export type MarketWithPlatform = Market & { platformDisplayName?: string };
+
+export const columns: ColumnDef<MarketWithPlatform>[] = [
   {
     id: "select",
     size: 60, // Set a specific size for the select column
@@ -53,7 +56,7 @@ export const columns: ColumnDef<Market>[] = [
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="font-bold text-black dark:text-white hover:bg-yellow-300 border-2 border-black shadow-[2px_2px_0px_0px_#000] hover:shadow-[4px_4px_0px_0px_#000]"
+          className="font-bold text-black dark:text-white hover:text-black dark:hover:text-black hover:bg-yellow-300 border-2 border-black shadow-[2px_2px_0px_0px_#000] hover:shadow-[4px_4px_0px_0px_#000]"
         >
           Title
           <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -63,41 +66,70 @@ export const columns: ColumnDef<Market>[] = [
     cell: ({ row }) => <div className="font-medium text-gray-900 dark:text-white">{row.getValue("title")}</div>,
   },
   {
-    accessorKey: "category",
+    accessorKey: "platformDisplayName",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="font-bold text-black dark:text-white hover:text-black dark:hover:text-black hover:bg-yellow-300 border-2 border-black shadow-[2px_2px_0px_0px_#000] hover:shadow-[4px_4px_0px_0px_#000]"
+        >
+          Platform
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      )
+    },
+    cell: ({ row }) => <div className="text-gray-700 dark:text-gray-300">{row.getValue("platformDisplayName") || "N/A"}</div>,
+  },
+  {
+    accessorKey: "outcomes",
     header: ({ column }) => (
        <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="font-bold text-black dark:text-white hover:bg-yellow-300 border-2 border-black shadow-[2px_2px_0px_0px_#000] hover:shadow-[4px_4px_0px_0px_#000]"
+          className="font-bold text-black dark:text-white hover:text-black dark:hover:text-black hover:bg-yellow-300 border-2 border-black shadow-[2px_2px_0px_0px_#000] hover:shadow-[4px_4px_0px_0px_#000] text-right"
         >
-          Category
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-    ),
-    cell: ({ row }) => <div className="text-gray-700 dark:text-gray-300">{row.getValue("category")}</div>,
-  },
-  {
-    accessorKey: "status",
-     header: ({ column }) => (
-       <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="font-bold text-black dark:text-white hover:bg-yellow-300 border-2 border-black shadow-[2px_2px_0px_0px_#000] hover:shadow-[4px_4px_0px_0px_#000]"
-        >
-          Status
+          Price
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
     ),
     cell: ({ row }) => {
-      const status = row.getValue("status") as string;
-      let bgColor = "bg-gray-300";
-      let textColor = "text-gray-800";
-      if (status === "active") { bgColor = "bg-green-300"; textColor = "text-green-800"; }
-      else if (status === "closed") { bgColor = "bg-yellow-300"; textColor = "text-yellow-800"; }
-      else if (status === "resolved") { bgColor = "bg-blue-300"; textColor = "text-blue-800"; }
+      const outcomes = row.original.outcomes;
+      const displayParts: string[] = [];
+
+      if (outcomes && outcomes.length > 0) {
+        for (let i = 0; i < Math.min(outcomes.length, 2); i++) {
+          const outcome = outcomes[i];
+          if (outcome.name && outcome.price !== undefined) {
+            const priceFormatted = new Intl.NumberFormat("en-US", {
+              style: "decimal",
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }).format(outcome.price);
+            displayParts.push(`${outcome.name}: ${priceFormatted}`);
+          }
+        }
+      }
       
-      return <span className={`px-2 py-1 rounded border-2 border-black text-xs font-bold uppercase tracking-wider ${bgColor} ${textColor} dark:border-black`}>{status}</span>
-    }
+      if (displayParts.length === 0) {
+        return <div className="text-right font-medium text-gray-900 dark:text-white">N/A</div>;
+      }
+
+      return (
+        <div className="text-right font-medium text-gray-900 dark:text-white">
+          {displayParts.map((part, index) => (
+            <div key={index}>{part}</div>
+          ))}
+        </div>
+      );
+    },
+    sortingFn: (rowA, rowB, _columnId) => {
+      const outcomesA = rowA.original.outcomes;
+      const outcomesB = rowB.original.outcomes;
+      const priceA = (outcomesA && outcomesA.length > 0 && outcomesA[0].price !== undefined) ? outcomesA[0].price : -1;
+      const priceB = (outcomesB && outcomesB.length > 0 && outcomesB[0].price !== undefined) ? outcomesB[0].price : -1;
+      return priceA - priceB;
+    },
   },
   {
     accessorKey: "totalVolume",
@@ -105,27 +137,85 @@ export const columns: ColumnDef<Market>[] = [
        <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="font-bold text-black dark:text-white hover:bg-yellow-300 border-2 border-black shadow-[2px_2px_0px_0px_#000] hover:shadow-[4px_4px_0px_0px_#000] text-right"
+          className="font-bold text-black dark:text-white hover:text-black dark:hover:text-black hover:bg-yellow-300 border-2 border-black shadow-[2px_2px_0px_0px_#000] hover:shadow-[4px_4px_0px_0px_#000] text-right"
         >
           Volume
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
     ),
     cell: ({ row }) => {
-      const amount = parseFloat(row.getValue("totalVolume") || "0")
+      const rawValue = row.getValue("totalVolume");
+      const amount = rawValue ?? 0;
+      let numericAmount: number;
+      if (typeof amount === 'number') {
+        numericAmount = amount;
+      } else if (typeof amount === 'string') {
+        numericAmount = parseFloat(amount);
+      } else {
+        // Fallback for unexpected types, though getValue should return primitive or undefined
+        numericAmount = 0;
+      }
+      if (isNaN(numericAmount)) {
+        numericAmount = 0; // Final fallback if parsing failed or was NaN initially
+      }
       const formatted = new Intl.NumberFormat("en-US", {
         style: "currency",
         currency: "USD",
-      }).format(amount)
-
-      return <div className="text-right font-medium text-gray-900 dark:text-white">{formatted}</div>
+      }).format(numericAmount);
+      return <div className="text-right font-medium text-gray-900 dark:text-white">{formatted}</div>;
+    },
+  },
+  {
+    accessorKey: "liquidity",
+    header: ({ column }) => (
+       <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="font-bold text-black dark:text-white hover:text-black dark:hover:text-black hover:bg-yellow-300 border-2 border-black shadow-[2px_2px_0px_0px_#000] hover:shadow-[4px_4px_0px_0px_#000] text-right"
+        >
+          Liquidity
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+    ),
+    cell: ({ row }) => {
+      const rawValue = row.getValue("liquidity");
+      const amount = rawValue ?? 0;
+      let numericAmount: number;
+      if (typeof amount === 'number') {
+        numericAmount = amount;
+      } else if (typeof amount === 'string') {
+        numericAmount = parseFloat(amount);
+      } else {
+        // Fallback for unexpected types
+        numericAmount = 0;
+      }
+      if (isNaN(numericAmount)) {
+        numericAmount = 0; // Final fallback
+      }
+      const formatted = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+      }).format(numericAmount);
+      return <div className="text-right font-medium text-gray-900 dark:text-white">{formatted}</div>;
     },
   },
   {
     accessorKey: "endDate",
-    header: "End Date",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="font-bold text-black dark:text-white hover:text-black dark:hover:text-black hover:bg-yellow-300 border-2 border-black shadow-[2px_2px_0px_0px_#000] hover:shadow-[4px_4px_0px_0px_#000]"
+        >
+          End Date
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      )
+    },
     cell: ({ row }) => {
-      const endDate = row.getValue("endDate") as number | undefined;
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      const endDate = row.getValue("endDate") as MarketWithPlatform['endDate'];
       return endDate ? <div className="text-gray-700 dark:text-gray-300">{new Date(endDate).toLocaleDateString()}</div> : "N/A";
     }
   },
@@ -138,15 +228,15 @@ export const columns: ColumnDef<Market>[] = [
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-yellow-300 border-2 border-black shadow-[2px_2px_0px_0px_#000] hover:shadow-[4px_4px_0px_0px_#000] dark:text-white">
+            <Button variant="ghost" className="h-8 w-8 p-0 bg-yellow-300 hover:bg-yellow-400 border-2 border-black shadow-[2px_2px_0px_0px_#000] hover:shadow-[4px_4px_0px_0px_#000]">
               <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
+              <MoreHorizontal className="h-4 w-4 text-black dark:text-black" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="bg-white border-2 border-black shadow-[4px_4px_0px_0px_#000] dark:bg-gray-800 dark:border-black">
             <DropdownMenuLabel className="font-bold dark:text-white">Actions</DropdownMenuLabel>
             <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(market.externalId)}
+              onClick={() => void navigator.clipboard.writeText(market.externalId)}
               className="hover:bg-yellow-300 dark:hover:bg-yellow-500 dark:text-white"
             >
               Copy Market ID
