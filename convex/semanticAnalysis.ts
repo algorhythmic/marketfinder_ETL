@@ -1,4 +1,4 @@
-import { action, internalAction, internalMutation, query, internalQuery } from "./_generated/server";
+import { internalAction, internalMutation, query, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
@@ -61,7 +61,29 @@ Respond with a JSON object:
         }),
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`AI API request failed with status ${response.status}: ${errorText}`);
+        return {
+          similar: false,
+          confidence: 0,
+          reasoning: `AI API Error: ${response.status} - ${errorText.substring(0, 100)}`,
+          outcomeMapping: null,
+        };
+      }
+
       const data = await response.json();
+      // It's possible data.choices[0].message.content is not what we expect if the call was not fully successful
+      // or if the model's response format changed.
+      if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+        console.error("AI response format unexpected:", JSON.stringify(data));
+        return {
+          similar: false,
+          confidence: 0,
+          reasoning: "AI response format unexpected. Check logs.",
+          outcomeMapping: null,
+        };
+      }
       const content = data.choices[0].message.content;
       
       try {
@@ -91,6 +113,9 @@ Respond with a JSON object:
 export const generateSemanticGroups = internalAction({
   args: {},
   handler: async (ctx) => {
+    console.log("generateSemanticGroups is temporarily disabled. Skipping execution.");
+    return; // Temporarily disable this action
+
     // Get unprocessed markets (not in any group)
     const allMarkets = await ctx.runQuery(internal.semanticAnalysis.getUnprocessedMarkets);
     

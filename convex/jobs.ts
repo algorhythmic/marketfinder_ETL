@@ -37,7 +37,7 @@ export const fetchAndStorePolymarketMarkets = internalAction({
 
     let rawData: PolymarketApiMarket[];
     try {
-      const response = await fetch("https://gamma-api.polymarket.com/markets?active=true&limit=100"); // Added limit
+      const response = await fetch("https://gamma-api.polymarket.com/markets?archived=false&closed=false&active=true&limit=100"); // Added limit
       if (!response.ok) {
         throw new Error(`API request failed with status ${response.status}: ${await response.text()}`);
       }

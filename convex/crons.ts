@@ -9,7 +9,7 @@ const crons = cronJobs();
 
 
 // Generate semantic groups every 30 minutes
-crons.interval("generate semantic groups", { minutes: 30 }, internal.semanticAnalysis.generateSemanticGroups, {});
+// crons.interval("generate semantic groups", { minutes: 30 }, internal.semanticAnalysis.generateSemanticGroups, {});
 
 // Detect arbitrage every 5 minutes
 crons.interval("detect arbitrage", { minutes: 5 }, internal.arbitrage.detectArbitrageOpportunities, {});
