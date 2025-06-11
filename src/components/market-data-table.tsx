@@ -155,7 +155,7 @@ export function MarketDataTable<TData extends FilterableTData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className="border-b border-gray-300 dark:border-gray-700 hover:bg-yellow-100 dark:hover:bg-yellow-700/30"
+                  className="border-b border-gray-300 dark:border-gray-700 hover:bg-yellow-200 dark:hover:bg-yellow-500/30"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="px-4 py-3 border-r border-gray-200 last:border-r-0 dark:border-gray-600">
@@ -187,7 +187,7 @@ export function MarketDataTable<TData extends FilterableTData, TValue>({
           {table.getFilteredRowModel().rows.length} row(s) selected.
         </div>
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={() => table.previousPage()}
           disabled={!table.getCanPreviousPage()}
@@ -196,7 +196,7 @@ export function MarketDataTable<TData extends FilterableTData, TValue>({
           Previous
         </Button>
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={() => table.nextPage()}
           disabled={!table.getCanNextPage()}
