@@ -10,22 +10,22 @@ const applicationTables = {
     baseUrl: v.string(),
     apiEndpoint: v.optional(v.string()),
     isActive: v.boolean(),
-    rateLimit: v.number(), // requests per minute
+    rateLimit: v.number(),
     lastSync: v.optional(v.number()),
     syncStatus: v.union(v.literal("active"), v.literal("error"), v.literal("paused")),
   }).index("by_name", ["name"]),
 
-  // Raw market data from each platform
+  // Optimized markets table with better indexes
   markets: defineTable({
     platformId: v.id("platforms"),
-    externalId: v.string(), // Platform's internal ID
+    externalId: v.string(),
     title: v.string(),
     description: v.optional(v.string()),
     category: v.optional(v.string()),
     outcomes: v.array(v.object({
       id: v.string(),
       name: v.string(),
-      price: v.number(), // Current price (0-1 or 0-100 depending on platform)
+      price: v.number(),
       volume: v.optional(v.number()),
     })),
     endDate: v.optional(v.number()),
@@ -45,18 +45,23 @@ const applicationTables = {
     .index("by_status", ["status"])
     .index("by_category", ["category"])
     .index("by_last_updated", ["lastUpdated"])
+    .index("by_platform_status", ["platformId", "status"]) // Compound index
+    .index("by_platform_external", ["platformId", "externalId"]) // For upserts
+    .index("by_volume", ["totalVolume"])
+    .index("by_liquidity", ["liquidity"])
+    .index("by_end_date", ["endDate"])
     .searchIndex("search_markets", {
       searchField: "title",
       filterFields: ["platformId", "category", "status"],
     }),
 
-  // Semantic market groups - markets that are equivalent across platforms
+  // Rest of your tables remain the same...
   marketGroups: defineTable({
-    name: v.string(), // Canonical name for this group
+    name: v.string(),
     description: v.string(),
     category: v.string(),
-    confidence: v.number(), // AI confidence in grouping (0-1)
-    isVerified: v.boolean(), // Human verified
+    confidence: v.number(),
+    isVerified: v.boolean(),
     createdBy: v.union(v.literal("ai"), v.literal("human")),
     lastAnalyzed: v.number(),
     tags: v.array(v.string()),
@@ -68,11 +73,10 @@ const applicationTables = {
       filterFields: ["category", "isVerified"],
     }),
 
-  // Links markets to their semantic groups
   marketGroupMemberships: defineTable({
     marketId: v.id("markets"),
     groupId: v.id("marketGroups"),
-    confidence: v.number(), // AI confidence this market belongs to group
+    confidence: v.number(),
     addedBy: v.union(v.literal("ai"), v.literal("human")),
     addedAt: v.number(),
   })
@@ -80,18 +84,17 @@ const applicationTables = {
     .index("by_group", ["groupId"])
     .index("by_confidence", ["confidence"]),
 
-  // Arbitrage opportunities
   arbitrageOpportunities: defineTable({
     groupId: v.id("marketGroups"),
-    buyMarketId: v.id("markets"), // Market to buy
-    sellMarketId: v.id("markets"), // Market to sell
+    buyMarketId: v.id("markets"),
+    sellMarketId: v.id("markets"),
     buyOutcome: v.string(),
     sellOutcome: v.string(),
     buyPrice: v.number(),
     sellPrice: v.number(),
-    profitMargin: v.number(), // Expected profit percentage
-    confidence: v.number(), // Confidence in opportunity
-    volume: v.optional(v.number()), // Available volume
+    profitMargin: v.number(),
+    confidence: v.number(),
+    volume: v.optional(v.number()),
     detectedAt: v.number(),
     expiresAt: v.optional(v.number()),
     status: v.union(v.literal("active"), v.literal("expired"), v.literal("taken")),
@@ -101,7 +104,6 @@ const applicationTables = {
     .index("by_detected_at", ["detectedAt"])
     .index("by_status", ["status"]),
 
-  // User subscriptions and preferences
   userProfiles: defineTable({
     userId: v.id("users"),
     subscriptionTier: v.union(v.literal("free"), v.literal("pro"), v.literal("enterprise")),
@@ -114,7 +116,6 @@ const applicationTables = {
       emailNotifications: v.boolean(),
     }),
     apiKeys: v.optional(v.object({
-      // Encrypted API keys for platforms
       polymarket: v.optional(v.string()),
       kalshi: v.optional(v.string()),
       predictit: v.optional(v.string()),
@@ -122,7 +123,6 @@ const applicationTables = {
     lastActive: v.number(),
   }).index("by_user", ["userId"]),
 
-  // User alerts and notifications
   alerts: defineTable({
     userId: v.id("users"),
     type: v.union(v.literal("arbitrage"), v.literal("price_change"), v.literal("new_market")),
@@ -140,7 +140,6 @@ const applicationTables = {
     .index("by_created_at", ["createdAt"])
     .index("by_unread", ["userId", "isRead"]),
 
-  // Analytics and tracking
   priceHistory: defineTable({
     marketId: v.id("markets"),
     outcome: v.string(),
@@ -152,13 +151,12 @@ const applicationTables = {
     .index("by_timestamp", ["timestamp"])
     .index("by_market_and_time", ["marketId", "timestamp"]),
 
-  // System logs for monitoring
   syncLogs: defineTable({
     platformId: v.id("platforms"),
     status: v.union(v.literal("success"), v.literal("error"), v.literal("partial")),
     marketsProcessed: v.number(),
     errors: v.optional(v.array(v.string())),
-    duration: v.number(), // milliseconds
+    duration: v.number(),
     timestamp: v.number(),
   })
     .index("by_platform", ["platformId"])
