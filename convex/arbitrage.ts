@@ -1,296 +1,344 @@
-import { query, internalMutation, internalAction, internalQuery } from "./_generated/server";
+import { action, internalAction, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 
-// Detect arbitrage opportunities across market groups
-export const detectArbitrageOpportunities = internalAction({
-  args: {},
-  handler: async (ctx) => {
-    const groups = await ctx.runQuery(internal.arbitrage.getActiveMarketGroups);
-    
-    for (const group of groups) {
-      await ctx.runAction(internal.arbitrage.analyzeGroupForArbitrage, {
-        groupId: group._id,
-      });
+// Helper function to get platform name by ID
+async function getPlatformName(ctx: any, platformId: any) {
+    const platform = await ctx.runQuery(internal.platforms.getPlatformByIdInternal, { platformId });
+    return platform?.name ?? "Unknown Platform";
+}
+
+// Helper function containing the core arbitrage detection logic for binary markets
+function findBinaryArbitrageOpportunities(markets: any[]) {
+    const opportunities = [];
+    for (let i = 0; i < markets.length; i++) {
+        for (let j = i + 1; j < markets.length; j++) {
+            const market1 = markets[i];
+            const market2 = markets[j];
+
+            // Don't compare markets from the same platform
+            if (market1.platformId === market2.platformId) continue;
+
+            const outcomes1 = market1.outcomes;
+            const outcomes2 = market2.outcomes;
+
+            // Ensure both are binary markets
+            if (outcomes1.length !== 2 || outcomes2.length !== 2) continue;
+
+            const yes1 = outcomes1.find((o: any) => o.name.toLowerCase() === 'yes');
+            const no1 = outcomes1.find((o: any) => o.name.toLowerCase() === 'no');
+            const yes2 = outcomes2.find((o: any) => o.name.toLowerCase() === 'yes');
+            const no2 = outcomes2.find((o: any) => o.name.toLowerCase() === 'no');
+
+            if (!yes1 || !no1 || !yes2 || !no2) continue;
+
+            // Opportunity 1: Buy Yes on Market 1, Buy No on Market 2
+            if (yes1.price + no2.price < 1) {
+                const profitMargin = 1 - (yes1.price + no2.price);
+                opportunities.push({
+                    profitMargin,
+                    description: `Buy 'Yes' on ${market1.platformName} for ${yes1.price} and 'No' on ${market2.platformName} for ${no2.price}.`,
+                    legs: [
+                        { platform: market1.platformName, market: market1.title, outcome: 'Yes', price: yes1.price },
+                        { platform: market2.platformName, market: market2.title, outcome: 'No', price: no2.price },
+                    ],
+                    buyMarketId: market1._id,
+                    sellMarketId: market2._id,
+                    buyOutcome: 'Yes',
+                    sellOutcome: 'No',
+                    buyPrice: yes1.price,
+                    sellPrice: no2.price,
+                });
+            }
+
+            // Opportunity 2: Buy No on Market 1, Buy Yes on Market 2
+            if (no1.price + yes2.price < 1) {
+                const profitMargin = 1 - (no1.price + yes2.price);
+                opportunities.push({
+                    profitMargin,
+                    description: `Buy 'No' on ${market1.platformName} for ${no1.price} and 'Yes' on ${market2.platformName} for ${yes2.price}.`,
+                    legs: [
+                        { platform: market1.platformName, market: market1.title, outcome: 'No', price: no1.price },
+                        { platform: market2.platformName, market: market2.title, outcome: 'Yes', price: yes2.price },
+                    ],
+                    buyMarketId: market1._id,
+                    sellMarketId: market2._id,
+                    buyOutcome: 'No',
+                    sellOutcome: 'Yes',
+                    buyPrice: no1.price,
+                    sellPrice: yes2.price,
+                });
+            }
+        }
     }
-  },
+    return opportunities;
+}
+
+// Internal action for the cron job to detect arbitrage across all market groups
+export const detectArbitrageOpportunities = internalAction({
+    handler: async (ctx) => {
+        console.log("Running detectArbitrageOpportunities cron job...");
+        const marketGroups = await ctx.runQuery(api.semanticAnalysis.getMarketGroups, {});
+
+        for (const group of marketGroups) {
+            if (!group.markets || group.markets.length < 2) continue;
+
+            const marketsWithPlatforms = await Promise.all(
+                group.markets.map(async (market: any) => {
+                    if (!market) return null;
+                    const platformName = await getPlatformName(ctx, market.platformId);
+                    return { ...market, platformName };
+                })
+            );
+            
+            const validMarkets = marketsWithPlatforms.filter((m): m is NonNullable<typeof m> => m !== null);
+
+            if (validMarkets.length < 2) continue;
+
+            const opportunities = findBinaryArbitrageOpportunities(validMarkets);
+
+            for (const opp of opportunities) {
+                await ctx.runMutation(internal.arbitrage.storeArbitrageOpportunity, {
+                    groupId: group._id,
+                    buyMarketId: opp.buyMarketId,
+                    sellMarketId: opp.sellMarketId,
+                    buyOutcome: opp.buyOutcome,
+                    sellOutcome: opp.sellOutcome,
+                    buyPrice: opp.buyPrice,
+                    sellPrice: opp.sellPrice,
+                    profitMargin: opp.profitMargin,
+                    confidence: group.confidence, // Use group confidence
+                });
+            }
+        }
+        console.log("Finished detectArbitrageOpportunities cron job.");
+    },
 });
 
-export const getActiveMarketGroups = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    return await ctx.db
-      .query("marketGroups")
-      .filter((q) => q.gte(q.field("confidence"), 0.7))
-      .collect();
-  },
+// Internal mutation to store found opportunities in the database
+export const storeArbitrageOpportunity = internalMutation({
+    args: {
+        groupId: v.id("marketGroups"),
+        buyMarketId: v.id("markets"),
+        sellMarketId: v.id("markets"),
+        buyOutcome: v.string(),
+        sellOutcome: v.string(),
+        buyPrice: v.number(),
+        sellPrice: v.number(),
+        profitMargin: v.number(),
+        confidence: v.number(),
+    },
+    handler: async (ctx, args) => {
+        // Check if a similar opportunity already exists to avoid duplicates
+        const existing = await ctx.db.query('arbitrageOpportunities')
+            .withIndex('by_group', q => q.eq('groupId', args.groupId))
+            .filter(q => q.and(
+                q.eq(q.field('buyMarketId'), args.buyMarketId),
+                q.eq(q.field('sellMarketId'), args.sellMarketId),
+                q.eq(q.field('buyOutcome'), args.buyOutcome)
+            ))
+            .first();
+
+        if (!existing) {
+            await ctx.db.insert("arbitrageOpportunities", {
+                ...args,
+                detectedAt: Date.now(),
+                status: "active",
+            });
+        }
+    },
 });
 
-export const analyzeGroupForArbitrage = internalAction({
-  args: { groupId: v.id("marketGroups") },
-  handler: async (ctx, args) => {
-    const memberships = await ctx.runQuery(internal.arbitrage.getGroupMarkets, {
-      groupId: args.groupId,
-    });
+import { Id } from "./_generated/dataModel";
 
-    if (memberships.length < 2) return;
+// Define the structure for a leg of an arbitrage opportunity
+interface ArbitrageLeg {
+  marketId: Id<"markets">;
+  marketTitle: string;
+  platformId: Id<"platforms">; 
+  platformName: string;      
+  outcomeName: string;
+  price: number;
+}
 
-    // Compare all pairs of markets in the group
-    for (let i = 0; i < memberships.length; i++) {
-      for (let j = i + 1; j < memberships.length; j++) {
-        const fullMarket1 = memberships[i];
-        const fullMarket2 = memberships[j];
+// Define the structure for a found arbitrage opportunity
+interface FoundArbitrageOpportunity {
+  marketA_leg: ArbitrageLeg;    
+  marketB_leg: ArbitrageLeg;    
+  combinedPrice: number;        
+  profitMarginEstimate: number; 
+  description: string;          
+}
 
-        // Skip if same platform (no arbitrage possible) or null markets
-        if (!fullMarket1 || !fullMarket2 || fullMarket1.platformId === fullMarket2.platformId) continue;
+const ARBITRAGE_THRESHOLD = 0.99; // Combined price must be less than this
 
-        // Prepare market objects for the mutation, selecting only required fields
-        const preparedMarket1 = {
-          _id: fullMarket1._id,
-          platformId: fullMarket1.platformId,
-          outcomes: fullMarket1.outcomes.map(o => ({
-            id: o.id,
-            name: o.name,
-            price: o.price,
-            volume: o.volume, // volume is optional in validator
-          })),
+export const findArbitrageForSelectedMarkets = action({
+  args: {
+    marketIds: v.array(v.id("markets")),
+  },
+  handler: async (ctx, args): Promise<{ message: string; opportunities: FoundArbitrageOpportunity[] }> => {
+    const { marketIds } = args;
+    if (marketIds.length < 2) {
+      return { message: "Please select at least two markets to find arbitrage.", opportunities: [] };
+    }
+
+    console.log(`Finding arbitrage for ${marketIds.length} selected markets:`, marketIds);
+
+    const marketsFromDB = [];
+    for (const marketId of marketIds) {
+      const marketDoc = await ctx.runQuery(api.marketUtils.getMarketById, { id: marketId });
+      if (marketDoc) {
+        const platformDoc = await ctx.runQuery(internal.platforms.getPlatformByIdInternal, { platformId: marketDoc.platformId });
+        if (!platformDoc) {
+          console.warn(`Platform not found for market ${marketDoc._id} with platformId ${marketDoc.platformId}. Skipping market.`);
+          continue;
+        }
+
+        const marketWithPlatformName = {
+          ...marketDoc,
+          platformName: platformDoc.name,
         };
 
-        const preparedMarket2 = {
-          _id: fullMarket2._id,
-          platformId: fullMarket2.platformId,
-          outcomes: fullMarket2.outcomes.map(o => ({
-            id: o.id,
-            name: o.name,
-            price: o.price,
-            volume: o.volume, // volume is optional in validator
-          })),
-        };
-
-        await ctx.runMutation(internal.arbitrage.findArbitrageInMarketPair, {
-          groupId: args.groupId,
-          market1: preparedMarket1,
-          market2: preparedMarket2,
-        });
+        if (!marketWithPlatformName.platformName || !marketWithPlatformName.title || !marketWithPlatformName.outcomes) {
+            console.warn(`Market ${marketWithPlatformName._id} is missing essential data (platformName, title, or outcomes) for arbitrage analysis after platform enrichment.`);
+            continue;
+        }
+        marketsFromDB.push(marketWithPlatformName);
       }
     }
-  },
-});
 
-export const getGroupMarkets = internalQuery({
-  args: { groupId: v.id("marketGroups") },
-  handler: async (ctx, args) => {
-    const memberships = await ctx.db
-      .query("marketGroupMemberships")
-      .withIndex("by_group", (q) => q.eq("groupId", args.groupId))
-      .collect();
+    if (marketsFromDB.length < 2) {
+      return { message: "Could not retrieve enough valid market details for arbitrage analysis.", opportunities: [] };
+    }
 
-    const markets = await Promise.all(
-      memberships.map(async (membership) => {
-        const market = await ctx.db.get(membership.marketId);
-        return market && market.status === "active" ? market : null;
-      })
-    );
+    const foundOpportunities: FoundArbitrageOpportunity[] = [];
 
-    return markets.filter((m): m is NonNullable<typeof m> => m !== null);
-  },
-});
+    for (let i = 0; i < marketsFromDB.length; i++) {
+      for (let j = i + 1; j < marketsFromDB.length; j++) {
+        const marketA = marketsFromDB[i];
+        const marketB = marketsFromDB[j];
 
-export const findArbitrageInMarketPair = internalMutation({
-  args: {
-    groupId: v.id("marketGroups"),
-    market1: v.object({
-      _id: v.id("markets"),
-      platformId: v.id("platforms"),
-      outcomes: v.array(v.object({
-        id: v.string(),
-        name: v.string(),
-        price: v.number(),
-        volume: v.optional(v.number()),
-      })),
-    }),
-    market2: v.object({
-      _id: v.id("markets"),
-      platformId: v.id("platforms"),
-      outcomes: v.array(v.object({
-        id: v.string(),
-        name: v.string(),
-        price: v.number(),
-        volume: v.optional(v.number()),
-      })),
-    }),
-  },
-  handler: async (ctx, args) => {
-    const { market1, market2, groupId } = args;
+        if (marketA.platformId === marketB.platformId) {
+          continue;
+        }
 
-    // Find the best arbitrage opportunity between outcomes
-    let bestOpportunity = null;
-    let maxProfit = 0;
+        if (
+          marketA.outcomes?.length !== 2 || marketB.outcomes?.length !== 2 ||
+          marketA.outcomes.some(o => o.price == null || !o.name) ||
+          marketB.outcomes.some(o => o.price == null || !o.name)
+        ) {
+          console.log(`Skipping pair ${marketA.title} & ${marketB.title} due to non-binary or invalid outcome data.`);
+          continue;
+        }
+        
+        const outcomeA0 = marketA.outcomes[0];
+        const outcomeA1 = marketA.outcomes[1];
+        const outcomeB0 = marketB.outcomes[0];
+        const outcomeB1 = marketB.outcomes[1];
 
-    for (const outcome1 of market1.outcomes) {
-      for (const outcome2 of market2.outcomes) {
-        // Check if outcomes are semantically equivalent (simplified)
-        const outcomesMatch = outcome1.name.toLowerCase().includes("yes") && 
-                             outcome2.name.toLowerCase().includes("yes") ||
-                             outcome1.name.toLowerCase().includes("no") && 
-                             outcome2.name.toLowerCase().includes("no");
+        if (typeof outcomeA0.price !== 'number' || typeof outcomeA1.price !== 'number' ||
+            typeof outcomeB0.price !== 'number' || typeof outcomeB1.price !== 'number') {
+            console.log(`Skipping pair ${marketA.title} & ${marketB.title} due to non-numeric outcome prices.`);
+            continue;
+        }
 
-        if (!outcomesMatch) continue;
-
-        // Calculate potential profit
-        // Buy low, sell high
-        const buyPrice = Math.min(outcome1.price, outcome2.price);
-        const sellPrice = Math.max(outcome1.price, outcome2.price);
-        const profitMargin = ((sellPrice - buyPrice) / buyPrice) * 100;
-
-        // Minimum 2% profit margin to be considered
-        if (profitMargin > 2 && profitMargin > maxProfit) {
-          maxProfit = profitMargin;
-          bestOpportunity = {
-            buyMarket: outcome1.price < outcome2.price ? market1 : market2,
-            sellMarket: outcome1.price < outcome2.price ? market2 : market1,
-            buyOutcome: outcome1.price < outcome2.price ? outcome1 : outcome2,
-            sellOutcome: outcome1.price < outcome2.price ? outcome2 : outcome1,
-            buyPrice,
-            sellPrice,
-            profitMargin,
+        // Scenario 1: Buy outcomeA0 + Buy outcomeB1
+        const combinedPrice1 = outcomeA0.price + outcomeB1.price;
+        if (combinedPrice1 < ARBITRAGE_THRESHOLD) {
+          const profitMargin1 = 1 - combinedPrice1;
+          const opportunity: FoundArbitrageOpportunity = {
+            marketA_leg: {
+              marketId: marketA._id,
+              marketTitle: marketA.title,
+              platformId: marketA.platformId,
+              platformName: marketA.platformName, // Now directly available
+              outcomeName: outcomeA0.name,
+              price: outcomeA0.price,
+            },
+            marketB_leg: {
+              marketId: marketB._id,
+              marketTitle: marketB.title,
+              platformId: marketB.platformId,
+              platformName: marketB.platformName, // Now directly available
+              outcomeName: outcomeB1.name,
+              price: outcomeB1.price,
+            },
+            combinedPrice: combinedPrice1,
+            profitMarginEstimate: profitMargin1,
+            description: `Buy '${outcomeA0.name}' on ${marketA.platformName} (@${outcomeA0.price.toFixed(2)}) and '${outcomeB1.name}' on ${marketB.platformName} (@${outcomeB1.price.toFixed(2)}). Est. Profit: ${(profitMargin1 * 100).toFixed(1)}%`,
           };
+          foundOpportunities.push(opportunity);
+        }
+
+        // Scenario 2: Buy outcomeA1 + Buy outcomeB0
+        const combinedPrice2 = outcomeA1.price + outcomeB0.price;
+        if (combinedPrice2 < ARBITRAGE_THRESHOLD) {
+          const profitMargin2 = 1 - combinedPrice2;
+          const opportunity: FoundArbitrageOpportunity = {
+            marketA_leg: {
+              marketId: marketA._id,
+              marketTitle: marketA.title,
+              platformId: marketA.platformId,
+              platformName: marketA.platformName, // Now directly available
+              outcomeName: outcomeA1.name,
+              price: outcomeA1.price,
+            },
+            marketB_leg: {
+              marketId: marketB._id,
+              marketTitle: marketB.title,
+              platformId: marketB.platformId,
+              platformName: marketB.platformName, // Now directly available
+              outcomeName: outcomeB0.name,
+              price: outcomeB0.price,
+            },
+            combinedPrice: combinedPrice2,
+            profitMarginEstimate: profitMargin2,
+            description: `Buy '${outcomeA1.name}' on ${marketA.platformName} (@${outcomeA1.price.toFixed(2)}) and '${outcomeB0.name}' on ${marketB.platformName} (@${outcomeB0.price.toFixed(2)}). Est. Profit: ${(profitMargin2 * 100).toFixed(1)}%`,
+          };
+          foundOpportunities.push(opportunity);
         }
       }
     }
-
-    if (bestOpportunity) {
-      // Check if this opportunity already exists
-      const existing = await ctx.db
-        .query("arbitrageOpportunities")
-        .withIndex("by_group", (q) => q.eq("groupId", groupId))
-        .filter((q) => 
-          q.and(
-            q.eq(q.field("buyMarketId"), bestOpportunity.buyMarket._id),
-            q.eq(q.field("sellMarketId"), bestOpportunity.sellMarket._id),
-            q.eq(q.field("status"), "active")
-          )
-        )
-        .first();
-
-      if (existing) {
-        // Update existing opportunity
-        await ctx.db.patch(existing._id, {
-          buyPrice: bestOpportunity.buyPrice,
-          sellPrice: bestOpportunity.sellPrice,
-          profitMargin: bestOpportunity.profitMargin,
-          detectedAt: Date.now(),
-          expiresAt: Date.now() + (30 * 60 * 1000), // 30 minutes
-        });
-      } else {
-        // Create new opportunity
-        await ctx.db.insert("arbitrageOpportunities", {
-          groupId,
-          buyMarketId: bestOpportunity.buyMarket._id,
-          sellMarketId: bestOpportunity.sellMarket._id,
-          buyOutcome: bestOpportunity.buyOutcome.id,
-          sellOutcome: bestOpportunity.sellOutcome.id,
-          buyPrice: bestOpportunity.buyPrice,
-          sellPrice: bestOpportunity.sellPrice,
-          profitMargin: bestOpportunity.profitMargin,
-          confidence: 0.8, // Base confidence
-          volume: Math.min(
-            bestOpportunity.buyOutcome.volume || 0,
-            bestOpportunity.sellOutcome.volume || 0
-          ),
-          detectedAt: Date.now(),
-          expiresAt: Date.now() + (30 * 60 * 1000), // 30 minutes
-          status: "active",
-        });
-      }
-    }
-  },
-});
-
-// Get active arbitrage opportunities
-export const getArbitrageOpportunities = query({
-  args: {
-    minProfitMargin: v.optional(v.number()),
-    limit: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    let query = ctx.db
-      .query("arbitrageOpportunities")
-      .withIndex("by_status", (q) => q.eq("status", "active"));
-
-    if (args.minProfitMargin !== undefined) {
-      query = query.filter((q) => q.gte(q.field("profitMargin"), args.minProfitMargin!));
-    }
-
-    const opportunities = await query
-      .order("desc")
-      .take(args.limit || 50);
-
-    // Enrich with market and platform data
-    return await Promise.all(
-      opportunities.map(async (opp) => {
-        const [buyMarket, sellMarket, group] = await Promise.all([
-          ctx.db.get(opp.buyMarketId),
-          ctx.db.get(opp.sellMarketId),
-          ctx.db.get(opp.groupId),
-        ]);
-
-        if (!buyMarket || !sellMarket || !group) return null;
-
-        const [buyPlatform, sellPlatform] = await Promise.all([
-          ctx.db.get(buyMarket.platformId),
-          ctx.db.get(sellMarket.platformId),
-        ]);
-
-        return {
-          ...opp,
-          buyMarket: { ...buyMarket, platform: buyPlatform },
-          sellMarket: { ...sellMarket, platform: sellPlatform },
-          group,
-        };
-      })
-    ).then(results => results.filter(Boolean));
-  },
-});
-
-// Get arbitrage statistics
-export const getArbitrageStats = query({
-  args: {},
-  handler: async (ctx) => {
-    const now = Date.now();
-    const dayAgo = now - (24 * 60 * 60 * 1000);
-    const weekAgo = now - (7 * 24 * 60 * 60 * 1000);
-
-    const [active, today, thisWeek] = await Promise.all([
-      ctx.db
-        .query("arbitrageOpportunities")
-        .withIndex("by_status", (q) => q.eq("status", "active"))
-        .collect(),
-      ctx.db
-        .query("arbitrageOpportunities")
-        .withIndex("by_detected_at")
-        .filter((q) => q.gte(q.field("detectedAt"), dayAgo))
-        .collect(),
-      ctx.db
-        .query("arbitrageOpportunities")
-        .withIndex("by_detected_at")
-        .filter((q) => q.gte(q.field("detectedAt"), weekAgo))
-        .collect(),
-    ]);
-
-    return {
-      activeCount: active.length,
-      averageProfit: active.length > 0 
-        ? active.reduce((sum, opp) => sum + opp.profitMargin, 0) / active.length 
-        : 0,
-      maxProfit: active.length > 0 
-        ? Math.max(...active.map(opp => opp.profitMargin)) 
-        : 0,
-      todayCount: today.length,
-      weekCount: thisWeek.length,
-      topOpportunities: active
-        .sort((a, b) => b.profitMargin - a.profitMargin)
-        .slice(0, 5),
+    
+    const message = foundOpportunities.length > 0 
+      ? `Found ${foundOpportunities.length} potential arbitrage opportunities.`
+      : "No obvious arbitrage opportunities found with current logic.";
+      
+    return { 
+      message,
+      opportunities: foundOpportunities 
     };
   },
 });
+
+// Future internal mutation to create an arbitrage opportunity record
+/*
+import { internalMutation } from "./_generated/server";
+export const createArbitrageOpportunity = internalMutation({
+  args: {
+    marketAId: v.id("markets"),
+    marketBId: v.id("markets"),
+    opportunityDetails: v.object({
+      profitMargin: v.number(),
+      outcomesToBet: v.array(v.object({
+        marketId: v.id("markets"),
+        outcomeId: v.string(),
+        outcomeName: v.string(),
+        price: v.number(),
+        platformName: v.string(),
+      })),
+    }),
+    status: v.union(v.literal("active"), v.literal("expired"), v.literal("executed")),
+  },
+  handler: async (ctx, args) => {
+    const opportunityId = await ctx.db.insert("arbitrageOpportunities", {
+      marketAId: args.marketAId,
+      marketBId: args.marketBId,
+      opportunityDetails: args.opportunityDetails,
+      identifiedAt: Date.now(),
+      status: args.status,
+    });
+    return opportunityId;
+  },
+});
+*/
