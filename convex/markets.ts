@@ -1,4 +1,4 @@
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, query, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { Doc, Id } from "./_generated/dataModel";
@@ -279,6 +279,14 @@ export const getMarketsPaginated = query({
     // is now determined by how queryBuilder was constructed.
     // Simplifying to remove the .order("desc") error for now.
     return await filteredQuery.paginate(args.paginationOpts);
+  },
+});
+
+// Internal query to fetch a single market by its ID
+export const getMarketByIdInternal = internalQuery({
+  args: { marketId: v.id("markets") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.marketId);
   },
 });
 
