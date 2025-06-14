@@ -28,8 +28,8 @@ export const createUserProfile = internalMutation({
   },
 });
 
-// Get or create user profile
-export const getUserProfile = query({
+// Create user profile if it doesn't exist
+export const ensureUserProfile = mutation({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
@@ -40,7 +40,37 @@ export const getUserProfile = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .first();
 
+    if (!profile) {
+      const profileId = await ctx.db.insert("userProfiles", {
+        userId,
+        subscriptionTier: "free",
+        preferences: {
+          categories: [],
+          platforms: [],
+          minProfitMargin: 2,
+          alertsEnabled: true,
+          emailNotifications: false,
+        },
+        lastActive: Date.now(),
+      });
+      profile = await ctx.db.get(profileId);
+    }
+
     return profile;
+  },
+});
+
+// Get user profile
+export const getUserProfile = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    return await ctx.db
+      .query("userProfiles")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
   },
 });
 
