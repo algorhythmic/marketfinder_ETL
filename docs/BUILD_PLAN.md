@@ -28,8 +28,6 @@ This document outlines the build plan for the Market Finder project. It draws fr
   └── jobs
       └── fetchPolymarket.ts   # Background job for Polymarket sync
       └── fetchKalshi.ts       # Background job for Kalshi sync
-      └── fetchPredictit.ts    # Background job for Predictit sync
-      └── fetchManifold.ts     # Background job for Manifold sync
 /convex
   ├── schema.ts     # Database schema definitions
   ├── http.ts       # HTTP endpoints (httpAction)
@@ -39,24 +37,24 @@ This document outlines the build plan for the Market Finder project. It draws fr
 ### Component Implementation Status
 
 - [x] `src/components/MarketDataTable.tsx`: fully implemented with dynamic filtering; integrated in `MarketsView`.
-- [x] `src/components/MarketsView.tsx`: implemented; fetches market data via Convex API and renders via `MarketDataTable`.
-- [ ] `src/components/MarketGroupsView.tsx`: placeholder UI; currently using dummy data or unimplemented backend query for semantic grouping.
+- [x] `src/components/MarketsView.tsx`: Enhanced with market selection (checkboxes), UI controls for semantic analysis and arbitrage detection. Triggers backend Convex actions (`analyzeSelectedMarkets`, `findArbitrageForSelectedMarkets`) with loading/feedback states.
+- [ ] `src/components/MarketGroupsView.tsx`: UI implemented and fetches data from `api.semanticAnalysis.getMarketGroups`; backend semantic group generation (`generateSemanticGroups` action) may be disabled or require further implementation/testing.
 - [ ] `src/components/ArbitrageView.tsx`: placeholder with `mockOpportunities`; needs real `api.arbitrage.getArbitrageOpportunities` integration and live data.
 - [ ] `src/components/AutomationView.tsx`: placeholder with `mockPlaybooks`; requires integration with Convex API for playbook management and actions.
 - [ ] `src/components/AlertsView.tsx`: UI skeleton exists; lacks alerts fetching logic and notification handling.
 - [ ] `src/components/DashboardOverview.tsx` / `Dashboard.tsx`: layout in place; needs data hooks for summary metrics and charts.
 - [ ] `src/components/PlatformStatusList.tsx`: placeholder status list; integrate real platform health endpoints.
-- [ ] `src/components/SettingsView.tsx`: form UI present; user settings persistence not yet implemented.
+- [ ] `src/components/SettingsView.tsx`: API credentials form UI implemented. Next: Add component for user to input LLM API key for semantic analysis provider configuration. User preferences persistence and account info still pending.
 - [ ] `src/components/Sidebar.tsx` / `NeobrutalistSidebar.tsx`: static navigation menus; consider dynamic configuration based on user roles.
 - [x] `src/components/ThemeToggle.tsx`: implemented; manages light/dark theme toggle.
 - [x] `src/components/market-table-columns.tsx`: implemented column definitions; extend for additional filter types as needed.
+- [x] `convex/semanticAnalysis.ts`: `analyzeSelectedMarkets` action implemented for pairwise semantic similarity using an LLM. Creates/updates market groups.
+- [x] `convex/arbitrage.ts`: `findArbitrageForSelectedMarkets` action implemented as a placeholder; full arbitrage logic pending.
 
 - **Core UI**: `MarketDataTable` (grid of markets), shared UI primitives (`Button`, `Card`).
-- **Data Sync**: Cron jobs to call Polymarket, Kalshi, Predictit, Manifold, and upsert markets/outcomes via internal mutations.
-  - [ ] `fetchPolymarket.ts`: Implement data fetching, transformation, and Convex cron.
-  - [ ] `fetchKalshi.ts`: Implement data fetching, transformation, and Convex cron.
-  - [ ] `fetchPredictit.ts`: Implement data fetching, transformation, and Convex cron.
-  - [ ] `fetchManifold.ts`: Implement data fetching, transformation, and Convex cron.
+- **Data Sync**: Cron jobs to call Polymarket and Kalshi, and upsert markets/outcomes via internal mutations.
+  - [x] `fetchPolymarket.ts`: Implement data fetching, transformation, and Convex cron.
+  - [x] `fetchKalshi.ts`: Implement data fetching, transformation, and Convex cron.
 
 ### Anticipated Convex Schema (`convex/schema.ts`)
 
@@ -123,6 +121,8 @@ npm run preview    # Local production preview
 
 ## 6. Future Extensions & Maintenance
 
+- Implement full arbitrage detection logic in `convex/arbitrage.ts` (compare selected markets, identify opportunities).
+- Develop UI in `src/components/SettingsView.tsx` for users to input and manage their LLM API key for the semantic analysis feature.
 - Integrate additional data sources (e.g. Augur).
 - Support schema migrations with Convex.
 - Add performance monitoring & logging.
