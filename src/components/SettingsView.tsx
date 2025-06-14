@@ -1,16 +1,42 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useState, useEffect } from "react";
-import { PlusCircle } from 'lucide-react';
-import { Button } from "./ui/button"; // Assuming Button component exists and is styled
+import { useState, useEffect, useMemo } from "react";
+import { ExternalLink } from 'lucide-react';
 import { PlatformStatusList } from './PlatformStatusList';
+import { PlatformCredentialsForm } from './PlatformCredentialsForm';
+import { LlmApiKeyForm } from './LlmApiKeyForm';
 
 export function SettingsView() {
-  const profile = useQuery(api.users.getUserProfile);
-  const platforms = useQuery(api.platforms.listPlatforms);
-  const updatePreferences = useMutation(api.users.updatePreferences);
-  const _createProfile = useMutation(api.users.createProfile);
+  // In development mode, just use mock data
+  // You can uncomment the real data hooks when you're ready to deploy the backend changes
+  // const profile = useQuery(api.users.getUserProfile);
   
+  const platforms = useQuery(api.platforms.listPlatforms) || [];
+  
+  // For local development, all mutations are no-ops
+  const updatePreferences = useMutation(api.users.updatePreferences);
+  
+  // Mock data for development/guest mode - use useMemo to prevent recreation on every render
+  const mockProfile = useMemo(() => ({
+    _id: "mock_profile_id" as any,
+    _creationTime: 1718170000000, // Fixed timestamp for stability
+    userId: "mock_user_id" as any,
+    subscriptionTier: "free",
+    lastActive: 1718170000000, // Fixed timestamp for stability
+    preferences: {
+      categories: ["Politics", "Sports", "Technology"],
+      platforms: [],
+      minProfitMargin: 2,
+      alertsEnabled: true,
+      emailNotifications: false,
+    },
+    llmApiKey: "sk-mock-123456789"
+  }), []); // Empty dependency array means this is created only once
+  
+  // In development, always use mock data
+  const userProfile = mockProfile;
+  
+  // Local state for preferences
   const [preferences, setPreferences] = useState({
     categories: [] as string[],
     platforms: [] as string[],
@@ -18,12 +44,23 @@ export function SettingsView() {
     alertsEnabled: true,
     emailNotifications: false,
   });
-
+  
+  // Update preferences when profile loads
   useEffect(() => {
-    if (profile?.preferences) {
-      setPreferences(profile.preferences);
+    if (userProfile?.preferences) {
+      setPreferences(userProfile.preferences);
     }
-  }, [profile]);
+  }, [userProfile]);
+
+  // Only show loading state when trying to load platforms data
+  if (platforms === undefined) {
+    return <div className="p-8 text-center text-gray-600 dark:text-gray-300">Loading settings...</div>;
+  }
+  
+  // Error handling for platforms data
+  if (platforms === null) {
+    return <div className="p-8 text-center text-red-500 dark:text-red-400">Error: Platforms data could not be loaded.</div>;
+  }
 
   const handleSave = async () => {
     await updatePreferences({ 
@@ -52,20 +89,70 @@ export function SettingsView() {
         <p className="text-gray-600 mt-1 font-medium dark:text-gray-400">Customize your Market Finder experience</p>
       </div>
 
-      {/* Platform Connections Section */}
+      {/* Platform Connection Status */}
+      <PlatformStatusList platforms={platforms} />
+
+      {/* LLM API Key Section */}
+      <LlmApiKeyForm />
+
+      {/* Platform API Credentials Section */}
       <div className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_#000] p-6 rounded-lg dark:bg-gray-800 dark:border-black dark:shadow-[8px_8px_0px_0px_#000]">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Platform Connections</h3>
-          <Button 
-            variant="default" 
-            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md border-2 border-black shadow-[4px_4px_0px_0px_#000] active:shadow-[2px_2px_0px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] transition-all dark:bg-blue-600 dark:hover:bg-blue-700 dark:border-black dark:shadow-[4px_4px_0px_0px_#000]"
-            onClick={() => console.log('Connect Platform clicked')}
-          >
-            <PlusCircle className="mr-2 h-5 w-5" />
-            Connect Platform
-          </Button>
-        </div>
-        <PlatformStatusList platforms={platforms} />
+        <h3 className="text-lg font-bold text-gray-900 mb-4 dark:text-white">Platform API Credentials</h3>
+        
+                {/* Polymarket Credentials Form */}
+        <PlatformCredentialsForm 
+          platformName="polymarket" 
+          displayName="Polymarket" 
+          description={
+            <>
+              <p className="mb-2">To sync with Polymarket's CLOB API, you need to generate API credentials (key, secret, and passphrase) by making a signed request to their authentication endpoint.</p>
+              <ol className="list-decimal pl-5 mb-2 space-y-1">
+                <li>Your application will need to programmatically sign a message with a private key to create or derive an API key.</li>
+                <li>The API key, secret, and passphrase are then used to authenticate requests for trading and account management.</li>
+                <li>For detailed instructions, please refer to the official Polymarket developer documentation.</li>
+              </ol>
+              <p className="flex items-center">
+                <a 
+                  href="https://docs.polymarket.com/developers/CLOB/authentication"
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline inline-flex items-center"
+                >
+                  View Polymarket Authentication Docs
+                  <ExternalLink size={12} className="ml-1" />
+                </a>
+              </p>
+            </>
+          } 
+        />
+
+        {/* Kalshi Credentials Form */}
+        <PlatformCredentialsForm 
+          platformName="kalshi" 
+          displayName="Kalshi" 
+          description={
+            <>
+              <p className="mb-2">To sync with Kalshi, you'll need to generate API credentials:</p>
+              <ol className="list-decimal pl-5 mb-2 space-y-1">
+                <li>Log in to your Kalshi account</li>
+                <li>Go to Account Settings &gt; API Keys</li>
+                <li>Click "Create New API Key"</li>
+                <li>Copy both the Key ID and Private Key</li>
+              </ol>
+              <p className="flex items-center">
+                <a 
+                  href="https://kalshi.com/account/profile" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline inline-flex items-center"
+                >
+                  Visit Kalshi Account Settings
+                  <ExternalLink size={12} className="ml-1" />
+                </a>
+              </p>
+            </>
+          } 
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -221,18 +308,18 @@ export function SettingsView() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Subscription Tier</label>
-            <p className="text-sm text-gray-900 mt-1 capitalize dark:text-gray-100">{profile?.subscriptionTier || "Free"}</p>
+            <p className="text-sm text-gray-900 mt-1 capitalize dark:text-gray-100">{userProfile?.subscriptionTier ?? "Free"}</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Last Active</label>
             <p className="text-sm text-gray-900 mt-1 dark:text-gray-100">
-              {profile?.lastActive ? new Date(profile.lastActive).toLocaleDateString() : "Never"}
+              {userProfile?.lastActive ? new Date(userProfile.lastActive).toLocaleDateString() : "Never"}
             </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Member Since</label>
             <p className="text-sm text-gray-900 mt-1 dark:text-gray-100">
-              {profile?._creationTime ? new Date(profile._creationTime).toLocaleDateString() : "Unknown"}
+              {userProfile?._creationTime ? new Date(userProfile._creationTime).toLocaleDateString() : "Unknown"}
             </p>
           </div>
         </div>

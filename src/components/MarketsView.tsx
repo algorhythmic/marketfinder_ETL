@@ -1,4 +1,4 @@
-import { useQuery } from "convex/react";
+import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import React, { useState, useEffect, useMemo } from "react";
 import { Id } from "../../convex/_generated/dataModel";
@@ -30,6 +30,7 @@ export function MarketsView() {
   const [endDateFilter, setEndDateFilter] = useState<Date | undefined>(undefined);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const calendarRef = React.useRef<HTMLDivElement>(null);
+  const [selectedMarketIds, setSelectedMarketIds] = useState<string[]>([]); // New state for selected market IDs
 
   // Handle click outside to close calendar
   React.useEffect(() => {
@@ -50,55 +51,225 @@ export function MarketsView() {
   const debouncedVolumeRange = useDebounce(volumeRange, 500);
   const debouncedLiquidityRange = useDebounce(liquidityRange, 500);
 
+  // Get the list of platforms from the database
   const platforms = useQuery(api.platforms.listPlatforms);
   
-  // Get market stats for slider ranges
+  // Get market stats for slider ranges 
   const marketStats = useQuery(api.markets.getMarketStats);
-
-  // Update slider ranges when stats load
+  
+  // Default values as constants to avoid recreation
+  const DEFAULT_VALUES = useMemo(() => ({
+    minVolume: 0,
+    maxVolume: 1000000,
+    minLiquidity: 0,
+    maxLiquidity: 1000000
+  }), []);
+  
+  // Track if we've initialized the ranges to prevent multiple updates
+  const [rangesInitialized, setRangesInitialized] = useState(false);
+  
+  // Initialize ranges with defaults or stats if available - only once
   useEffect(() => {
-    if (marketStats) {
-      setVolumeRange([marketStats.minVolume, marketStats.maxVolume]);
-      setLiquidityRange([marketStats.minLiquidity, marketStats.maxLiquidity]);
+    // Only initialize once to prevent multiple updates
+    if (!rangesInitialized) {
+      if (marketStats) {
+        // Use real data
+        setVolumeRange([marketStats.minVolume, marketStats.maxVolume]);
+        setLiquidityRange([marketStats.minLiquidity, marketStats.maxLiquidity]);
+      } else {
+        // Use defaults temporarily
+        setVolumeRange([DEFAULT_VALUES.minVolume, DEFAULT_VALUES.maxVolume]);
+        setLiquidityRange([DEFAULT_VALUES.minLiquidity, DEFAULT_VALUES.maxLiquidity]);
+      }
+      setRangesInitialized(true);
+    } else if (marketStats && rangesInitialized) {
+      // If stats loaded after initialization, only update if values are very different
+      const volumeDifferent = 
+        Math.abs(volumeRange[0] - marketStats.minVolume) > 1000 || 
+        Math.abs(volumeRange[1] - marketStats.maxVolume) > 1000;
+      const liquidityDifferent = 
+        Math.abs(liquidityRange[0] - marketStats.minLiquidity) > 1000 || 
+        Math.abs(liquidityRange[1] - marketStats.maxLiquidity) > 1000;
+      
+      if (volumeDifferent) {
+        setVolumeRange([marketStats.minVolume, marketStats.maxVolume]);
+      }
+      if (liquidityDifferent) {
+        setLiquidityRange([marketStats.minLiquidity, marketStats.maxLiquidity]);
+      }
     }
-  }, [marketStats]);
+  }, [marketStats, rangesInitialized, volumeRange, liquidityRange, DEFAULT_VALUES]);
 
-  // Optimized query args with server-side filtering
+  // Stabilized query args with server-side filtering and memoization to prevent unnecessary changes
   const queryArgs = useMemo(() => {
+    // Use a stable reference for the query arguments
     const args: any = {
       count: 50, // Reduced from 200
     };
 
+    // Only add filters if they're meaningful
     if (selectedPlatform) args.platformId = selectedPlatform;
-    if (debouncedSearchTerm) args.searchTerm = debouncedSearchTerm;
-    if (debouncedVolumeRange[0] > (marketStats?.minVolume ?? 0)) {
+    if (debouncedSearchTerm && debouncedSearchTerm.trim().length > 0) args.searchTerm = debouncedSearchTerm;
+    
+    // Only apply range filters if they differ from defaults
+    const minVolumeDefault = marketStats?.minVolume ?? DEFAULT_VALUES.minVolume;
+    const maxVolumeDefault = marketStats?.maxVolume ?? DEFAULT_VALUES.maxVolume;
+    const minLiquidityDefault = marketStats?.minLiquidity ?? DEFAULT_VALUES.minLiquidity;
+    const maxLiquidityDefault = marketStats?.maxLiquidity ?? DEFAULT_VALUES.maxLiquidity;
+    
+    // Add volume filters only if they're different from defaults
+    if (Math.abs(debouncedVolumeRange[0] - minVolumeDefault) > 1) {
       args.minVolume = debouncedVolumeRange[0];
     }
-    if (debouncedVolumeRange[1] < (marketStats?.maxVolume ?? 1000000)) {
+    if (Math.abs(debouncedVolumeRange[1] - maxVolumeDefault) > 1) {
       args.maxVolume = debouncedVolumeRange[1];
     }
-    if (debouncedLiquidityRange[0] > (marketStats?.minLiquidity ?? 0)) {
+    
+    // Add liquidity filters only if they're different from defaults
+    if (Math.abs(debouncedLiquidityRange[0] - minLiquidityDefault) > 1) {
       args.minLiquidity = debouncedLiquidityRange[0];
     }
-    if (debouncedLiquidityRange[1] < (marketStats?.maxLiquidity ?? 1000000)) {
+    if (Math.abs(debouncedLiquidityRange[1] - maxLiquidityDefault) > 1) {
       args.maxLiquidity = debouncedLiquidityRange[1];
     }
+    
+    // Only add date filter if it exists
     if (endDateFilter) {
       args.endDateBefore = endDateFilter.getTime();
     }
 
     return args;
   }, [
-    selectedPlatform,
     debouncedSearchTerm,
+    selectedPlatform,
     debouncedVolumeRange,
     debouncedLiquidityRange,
     endDateFilter,
     marketStats,
+    DEFAULT_VALUES,
   ]);
 
-  const markets = useQuery(api.markets.getMarkets, queryArgs);
+  // Track loading state with useState to prevent flashing
+  const [isLoading, setIsLoading] = useState(true);
+  const [previousQueryArgs, setPreviousQueryArgs] = useState<any>(null);
+  
+  // Store query args when they change to detect real changes
+  useEffect(() => {
+    // Only update when query args change meaningfully
+    if (!previousQueryArgs || JSON.stringify(previousQueryArgs) !== JSON.stringify(queryArgs)) {
+      setPreviousQueryArgs(queryArgs);
+    }
+  }, [queryArgs, previousQueryArgs]);
+  
+  // Query markets data with the current filters - use stable reference
+  const markets = useQuery(api.markets.getMarkets, previousQueryArgs || queryArgs);
   const marketData: MarketWithPlatform[] = markets || [];
+  
+  // Track if this is the first successful data load
+  const [firstLoadComplete, setFirstLoadComplete] = useState(false);
+
+  // Use an effect to manage loading state with stability
+  useEffect(() => {
+    // Initial loading state
+    if (!firstLoadComplete) {
+      setIsLoading(true);
+    }
+    
+    // Only mark as not loading when we have both markets and stats
+    if (markets !== undefined && marketStats !== undefined) {
+      // For first load, use longer timeout to ensure everything is ready
+      // This prevents the table from flashing or loading twice
+      const delay = firstLoadComplete ? 50 : 500;
+      
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+        if (!firstLoadComplete) {
+          setFirstLoadComplete(true);
+        }
+      }, delay);
+      
+      return () => clearTimeout(timer);
+    } else if (firstLoadComplete) {
+      // Only show loading again after first complete load if data becomes unavailable
+      setIsLoading(true);
+    }
+  }, [markets, marketStats, firstLoadComplete]);
+
+  // Handler for when market selection changes in the data table
+  const handleMarketSelection = (selectedMarkets: MarketWithPlatform[]) => {
+    setSelectedMarketIds(selectedMarkets.map(market => market._id));
+  };
+
+  // State for UI feedback related to semantic analysis and arbitrage detection
+  const [isAnalyzingSemantics, setIsAnalyzingSemantics] = useState(false);
+  const [analysisMessage, setAnalysisMessage] = useState<string | null>(null);
+  const [isFindingArbitrage, setIsFindingArbitrage] = useState(false);
+  const [arbitrageMessage, setArbitrageMessage] = useState<string | null>(null);
+
+  // Convex actions for semantic analysis and arbitrage detection
+  const triggerAnalyzeSelectedMarkets = useAction(api.semanticAnalysis.analyzeSelectedMarkets);
+  const triggerFindArbitrage = useAction(api.arbitrage.findArbitrageForSelectedMarkets);
+
+  // Development mode mock handler for semantic analysis
+  const handleAnalyzeSemantics = async () => {
+    if (selectedMarketIds.length < 2 || isAnalyzingSemantics) return;
+    setIsAnalyzingSemantics(true);
+    setAnalysisMessage("Analyzing semantics...");
+    
+    try {
+      // In development mode, use mock results
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Mock: Analyzing semantics for markets:', selectedMarketIds);
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setAnalysisMessage(
+          `[Development Mode] Analysis complete: Found semantic relationships between ${selectedMarketIds.length} markets. ` +
+          'Markets appear to be correlated based on subject matter.'  
+        );
+      } else {
+        // In production, call the real API
+        const result = await triggerAnalyzeSelectedMarkets({ marketIds: selectedMarketIds as Id<"markets">[] });
+        setAnalysisMessage(result.message);
+      }
+    } catch (error) {
+      console.error("Failed to analyze semantics:", error);
+      setAnalysisMessage("Error during semantic analysis. Check console.");
+    }
+    
+    setIsAnalyzingSemantics(false);
+  };
+
+  // Development mode mock handler for arbitrage detection
+  const handleFindArbitrage = async () => {
+    if (selectedMarketIds.length < 2 || isFindingArbitrage) return;
+    setIsFindingArbitrage(true);
+    setArbitrageMessage("Finding arbitrage opportunities...");
+    
+    try {
+      // In development mode, use mock results
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Mock: Finding arbitrage for markets:', selectedMarketIds);
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Generate mock arbitrage results
+        const mockProfitPercent = (Math.random() * 5 + 2).toFixed(2);
+        setArbitrageMessage(
+          `[Development Mode] Arbitrage analysis complete. Found potential profit of ${mockProfitPercent}% ` +
+          `between ${selectedMarketIds.length} selected markets. Strategies: Buy on market A, sell on market B.`
+        );
+      } else {
+        // In production, call the real API
+        const result = await triggerFindArbitrage({ marketIds: selectedMarketIds as Id<"markets">[] });
+        setArbitrageMessage(result.message);
+      }
+    } catch (error) {
+      console.error("Failed to find arbitrage:", error);
+      setArbitrageMessage("Error during arbitrage analysis. Check console.");
+    }
+    
+    setIsFindingArbitrage(false);
+  };
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -254,22 +425,54 @@ export function MarketsView() {
         </div>
       </div>
 
+      {/* Action Buttons for Selected Markets */}
+      {selectedMarketIds.length > 0 && (
+        <div className="my-4 p-4 bg-yellow-100 border-2 border-black shadow-[4px_4px_0px_0px_#000] rounded-lg dark:bg-gray-700 dark:border-black">
+          <div className="flex items-center space-x-4">
+            <p className="font-medium dark:text-white">{selectedMarketIds.length} market(s) selected.</p>
+            <Button 
+              onClick={() => { void handleAnalyzeSemantics(); }}
+              className="font-bold text-black bg-blue-400 hover:bg-blue-500 border-2 border-black shadow-[2px_2px_0px_0px_#000] hover:shadow-[3px_3px_0px_0px_#000] active:shadow-[1px_1px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] dark:text-white dark:hover:bg-blue-600"
+            >
+              Analyze Semantics
+            </Button>
+            <Button 
+              onClick={() => { void handleFindArbitrage(); }}
+              className="font-bold text-black bg-green-400 hover:bg-green-500 border-2 border-black shadow-[2px_2px_0px_0px_#000] hover:shadow-[3px_3px_0px_0px_#000] active:shadow-[1px_1px_0px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] dark:text-white dark:hover:bg-green-600"
+            >
+              Find Arbitrage
+            </Button>
+          </div>
+          {analysisMessage && (
+            <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 p-2 bg-white border border-gray-300 rounded-md shadow-sm">
+              {analysisMessage}
+            </p>
+          )}
+          {arbitrageMessage && (
+            <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 p-2 bg-white border border-gray-300 rounded-md shadow-sm">
+              {arbitrageMessage}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Loading State */}
-      {markets === undefined && (
+      {isLoading && (
         <div className="flex flex-col items-center justify-center py-12 space-y-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
           <div className="text-center">
-            <h3 className="text-lg font-semibold">Loading Markets...</h3>
-            <p className="text-sm text-gray-600">Please wait a moment.</p>
+            <h3 className="text-lg font-semibold dark:text-white">Loading Markets...</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Please wait a moment while we load market data.</p>
           </div>
         </div>
       )}
 
-      {/* Market Data Table */}
-      {markets !== undefined && (
+      {/* Market Data Table - Show once loaded and we have data */}
+      {!isLoading && markets !== undefined && (
         <MarketDataTable 
           columns={columns} 
           data={marketData}
+          onSelectionChange={handleMarketSelection} 
         />
       )}
 
