@@ -1,4 +1,4 @@
-import { internalAction, internalMutation, query, internalQuery } from "./_generated/server";
+import { internalAction, internalMutation, query, internalQuery, action } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
@@ -106,6 +106,70 @@ Respond with a JSON object:
         outcomeMapping: null,
       };
     }
+  },
+});
+
+// Public action to analyze a user-selected list of markets
+export const analyzeSelectedMarkets = action({
+  args: {
+    marketIds: v.array(v.id("markets")),
+  },
+  handler: async (ctx, args) => {
+    const { marketIds } = args;
+    if (marketIds.length < 2) {
+      console.log("Need at least two markets to compare.");
+      return { message: "Please select at least two markets for semantic analysis.", groupsCreated: 0, comparisonsMade: 0 };
+    }
+
+    console.log(`Analyzing ${marketIds.length} selected markets for semantic similarity.`);
+
+    // Fetch market details for all selected IDs
+    const marketsToAnalyze = [];
+    for (const marketId of marketIds) {
+      const market = await ctx.runQuery(internal.markets.getMarketByIdInternal, { marketId }); // Assuming an internal query to get market by ID
+      if (market) {
+        marketsToAnalyze.push({
+          id: market._id,
+          title: market.title,
+          description: market.description,
+          category: market.category,
+        });
+      }
+    }
+
+    if (marketsToAnalyze.length < 2) {
+      console.log("Not enough valid markets found to compare after fetching details.");
+      return { message: "Could not retrieve enough market details for comparison. Please try again.", groupsCreated: 0, comparisonsMade: 0 };
+    }
+
+    let comparisonsMade = 0;
+    let groupsCreated = 0;
+
+    // Compare each market with every other market in the selection
+    for (let i = 0; i < marketsToAnalyze.length; i++) {
+      for (let j = i + 1; j < marketsToAnalyze.length; j++) {
+        console.log(`Comparing market ${marketsToAnalyze[i].id} with ${marketsToAnalyze[j].id}`);
+        comparisonsMade++;
+        const similarity = await ctx.runAction(internal.semanticAnalysis.analyzeMarketSimilarity, {
+          market1: marketsToAnalyze[i],
+          market2: marketsToAnalyze[j],
+        });
+
+        if (similarity.similar && similarity.confidence > 0.7) { // Using the same threshold as processMarketCategory
+          console.log(`Markets ${marketsToAnalyze[i].id} and ${marketsToAnalyze[j].id} are similar. Confidence: ${similarity.confidence}`);
+          await ctx.runMutation(internal.semanticAnalysis.createOrUpdateMarketGroup, {
+            market1Id: marketsToAnalyze[i].id,
+            market2Id: marketsToAnalyze[j].id,
+            confidence: similarity.confidence,
+            reasoning: similarity.reasoning,
+            category: marketsToAnalyze[i].category || marketsToAnalyze[j].category || "Unknown", // Use category from one of the markets
+          });
+          groupsCreated++; 
+        }
+      }
+    }
+    console.log(`Semantic analysis complete. Comparisons: ${comparisonsMade}, Groups updated/created: ${groupsCreated}`);
+    return { message: `Semantic analysis complete. ${comparisonsMade} comparisons made, ${groupsCreated} groups updated or created.`, groupsCreated, comparisonsMade };
   },
 });
 
