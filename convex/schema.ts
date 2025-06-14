@@ -104,6 +104,21 @@ const applicationTables = {
     .index("by_detected_at", ["detectedAt"])
     .index("by_status", ["status"]),
 
+  users: defineTable({
+    // Fields from Clerk
+    name: v.optional(v.string()),
+    clerkId: v.optional(v.string()),
+    // Custom fields
+    preferences: v.optional(v.object({
+      categories: v.array(v.string()),
+      platforms: v.array(v.id("platforms")),
+      minProfitMargin: v.number(),
+      alertsEnabled: v.boolean(),
+      emailNotifications: v.boolean(),
+    })),
+    llmApiKey: v.optional(v.string()), // Added for LLM API Key storage
+  }).index("by_clerk_id", ["clerkId"]), // Index for querying by Clerk user ID
+
   userProfiles: defineTable({
     userId: v.id("users"),
     subscriptionTier: v.union(v.literal("free"), v.literal("pro"), v.literal("enterprise")),
@@ -156,11 +171,24 @@ const applicationTables = {
     status: v.union(v.literal("success"), v.literal("error"), v.literal("partial")),
     marketsProcessed: v.number(),
     errors: v.optional(v.array(v.string())),
-    duration: v.number(),
+    duration: v.optional(v.number()),
     timestamp: v.number(),
   })
     .index("by_platform", ["platformId"])
     .index("by_timestamp", ["timestamp"]),
+
+  // Store API credentials securely by user
+  platformCredentials: defineTable({
+    platformId: v.id("platforms"),
+    userId: v.id("users"),
+    apiKey: v.string(),   // Kalshi Key ID
+    privateKey: v.optional(v.string()), // Kalshi RSA private key
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_platform", ["platformId"])
+    .index("by_user", ["userId"])
+    .index("by_platform_and_user", ["platformId", "userId"]),
 };
 
 export default defineSchema({
