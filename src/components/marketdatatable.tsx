@@ -1,4 +1,4 @@
-// src/components/market-data-table.tsx
+// src/components/marketdatatable.tsx
 "use client"
 
 import * as React from "react"
