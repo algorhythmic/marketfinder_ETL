@@ -2,8 +2,8 @@ import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import React, { useState, useEffect, useMemo } from "react";
 import { Id } from "../../convex/_generated/dataModel";
-import { MarketDataTable } from "./market-data-table";
-import { columns, MarketWithPlatform } from "./market-table-columns";
+import { MarketDataTable } from "./marketdatatable";
+import { columns, MarketWithPlatform } from "./markettablecolumns";
 import {
   Select,
   SelectContent,

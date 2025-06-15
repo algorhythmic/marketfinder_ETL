@@ -1,4 +1,4 @@
-// src/components/market-table-columns.tsx
+// src/components/markettablecolumns.tsx
 "use client" // Required for TanStack Table components
 
 import { ColumnDef } from "@tanstack/react-table"
