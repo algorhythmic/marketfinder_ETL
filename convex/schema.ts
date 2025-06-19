@@ -15,44 +15,41 @@ const applicationTables = {
     syncStatus: v.union(v.literal("active"), v.literal("error"), v.literal("paused")),
   }).index("by_name", ["name"]),
 
-  // Optimized markets table with better indexes
+  // Clean markets table for ETL processed data
   markets: defineTable({
-    platformId: v.id("platforms"),
-    externalId: v.string(),
+    platform: v.string(), // "kalshi" | "polymarket"
+    externalId: v.string(), // Platform-specific ID
     title: v.string(),
-    description: v.optional(v.string()),
-    category: v.optional(v.string()),
+    description: v.string(),
+    category: v.string(), // Standardized categories
+    eventType: v.string(), // "binary" initially
+    
+    // Binary outcomes structure
     outcomes: v.array(v.object({
-      id: v.string(),
-      name: v.string(),
-      price: v.number(),
-      volume: v.optional(v.number()),
+      name: v.string(), // "Yes" | "No"
+      price: v.number(), // 0.0 - 1.0
     })),
-    endDate: v.optional(v.number()),
-    totalVolume: v.optional(v.number()),
-    liquidity: v.optional(v.number()),
-    status: v.union(v.literal("active"), v.literal("closed"), v.literal("resolved")),
-    lastUpdated: v.number(),
-    url: v.optional(v.string()),
-    metadata: v.optional(v.object({
-      tags: v.optional(v.array(v.string())),
-      minBet: v.optional(v.number()),
-      maxBet: v.optional(v.number()),
-      createdAt: v.optional(v.number()),
-    })),
+    
+    // Market metrics
+    volume: v.number(),
+    liquidity: v.number(),
+    endDate: v.number(),
+    
+    // Status tracking
+    isActive: v.boolean(),
+    
+    // ETL metadata
+    processedAt: v.number(), // When ETL processed this market
+    etlVersion: v.string(), // ETL pipeline version
   })
-    .index("by_platform", ["platformId"])
-    .index("by_status", ["status"])
+    .index("by_platform", ["platform"])
     .index("by_category", ["category"])
-    .index("by_last_updated", ["lastUpdated"])
-    .index("by_platform_status", ["platformId", "status"]) // Compound index
-    .index("by_platform_external", ["platformId", "externalId"]) // For upserts
-    .index("by_volume", ["totalVolume"])
-    .index("by_liquidity", ["liquidity"])
-    .index("by_end_date", ["endDate"])
+    .index("by_active", ["isActive"])
+    .index("by_platform_external", ["platform", "externalId"]) // For upserts
+    .index("by_processed_at", ["processedAt"])
     .searchIndex("search_markets", {
       searchField: "title",
-      filterFields: ["platformId", "category", "status"],
+      filterFields: ["platform", "category", "isActive"],
     }),
 
   // Rest of your tables remain the same...
@@ -84,25 +81,47 @@ const applicationTables = {
     .index("by_group", ["groupId"])
     .index("by_confidence", ["confidence"]),
 
-  arbitrageOpportunities: defineTable({
-    groupId: v.id("marketGroups"),
-    buyMarketId: v.id("markets"),
-    sellMarketId: v.id("markets"),
-    buyOutcome: v.string(),
-    sellOutcome: v.string(),
-    buyPrice: v.number(),
-    sellPrice: v.number(),
-    profitMargin: v.number(),
-    confidence: v.number(),
-    volume: v.optional(v.number()),
-    detectedAt: v.number(),
-    expiresAt: v.optional(v.number()),
-    status: v.union(v.literal("active"), v.literal("expired"), v.literal("taken")),
+  // Market similarities from ETL LLM analysis
+  marketSimilarities: defineTable({
+    market1Id: v.string(), // External ID from platform
+    market2Id: v.string(), // External ID from platform
+    platform1: v.string(), // "kalshi" | "polymarket"
+    platform2: v.string(), // "kalshi" | "polymarket"
+    confidence: v.number(), // 0.7 - 1.0
+    reasoning: v.string(), // LLM explanation
+    analyzedAt: v.number(),
+    llmModel: v.string(), // "gpt-4", etc.
   })
-    .index("by_group", ["groupId"])
+    .index("by_confidence", ["confidence"])
+    .index("by_market1", ["market1Id"])
+    .index("by_market2", ["market2Id"])
+    .index("by_platforms", ["platform1", "platform2"])
+    .index("by_analyzed_at", ["analyzedAt"]),
+
+  // Arbitrage opportunities from ETL processing
+  arbitrageOpportunities: defineTable({
+    // Reference to similarity that generated this opportunity
+    similarityId: v.optional(v.string()),
+    
+    // Market references (external IDs)
+    buyMarketId: v.string(),
+    sellMarketId: v.string(),
+    buyPlatform: v.string(),
+    sellPlatform: v.string(),
+    
+    // Opportunity metrics
+    profitMargin: v.number(),
+    confidence: v.number(), // From similarity analysis
+    
+    // Detection metadata
+    detectedAt: v.number(),
+    status: v.union(v.literal("active"), v.literal("expired"), v.literal("taken")),
+    etlVersion: v.string(),
+  })
     .index("by_profit_margin", ["profitMargin"])
     .index("by_detected_at", ["detectedAt"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_platforms", ["buyPlatform", "sellPlatform"]),
 
   users: defineTable({
     // Fields from Clerk
@@ -166,16 +185,33 @@ const applicationTables = {
     .index("by_timestamp", ["timestamp"])
     .index("by_market_and_time", ["marketId", "timestamp"]),
 
-  syncLogs: defineTable({
-    platformId: v.id("platforms"),
+  // ETL pipeline execution logs
+  etlLogs: defineTable({
+    runId: v.string(), // UUID for each ETL run
     status: v.union(v.literal("success"), v.literal("error"), v.literal("partial")),
+    
+    // Processing metrics
     marketsProcessed: v.number(),
+    similaritiesGenerated: v.number(),
+    opportunitiesFound: v.number(),
+    
+    // Timing and errors
+    startTime: v.number(),
+    endTime: v.number(),
+    duration: v.number(), // milliseconds
     errors: v.optional(v.array(v.string())),
-    duration: v.optional(v.number()),
-    timestamp: v.number(),
+    
+    // ETL metadata
+    etlVersion: v.string(),
+    llmModel: v.optional(v.string()),
+    
+    // Platform-specific metrics
+    kalshiMarketsCount: v.number(),
+    polymarketMarketsCount: v.number(),
   })
-    .index("by_platform", ["platformId"])
-    .index("by_timestamp", ["timestamp"]),
+    .index("by_run_id", ["runId"])
+    .index("by_status", ["status"])
+    .index("by_start_time", ["startTime"]),
 
   // Store API credentials securely by user
   platformCredentials: defineTable({

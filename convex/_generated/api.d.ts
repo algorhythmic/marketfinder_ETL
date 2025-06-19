@@ -16,6 +16,7 @@ import type {
 import type * as arbitrage from "../arbitrage.js";
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
+import type * as etl from "../etl.js";
 import type * as http from "../http.js";
 import type * as jobs from "../jobs.js";
 import type * as marketUtils from "../marketUtils.js";
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   arbitrage: typeof arbitrage;
   auth: typeof auth;
   crons: typeof crons;
+  etl: typeof etl;
   http: typeof http;
   jobs: typeof jobs;
   marketUtils: typeof marketUtils;
