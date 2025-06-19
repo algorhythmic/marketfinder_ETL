@@ -165,7 +165,8 @@ async function fetchKalshiMarketsExhaustive(): Promise<any[]> {
       category,
       yes_price: calculateKalshiPrice(market, 'yes'),
       no_price: calculateKalshiPrice(market, 'no'),
-      volume: parseFloat(String(market.volume_24h || market.volume || 0)),
+      // Kalshi API doesn't provide volume data - use liquidity as proxy for market activity
+      volume: parseFloat(String(market.liquidity || 0)) / 1000, // Scale liquidity to volume-like range
       liquidity: parseFloat(String(market.liquidity || market.open_interest || 0)),
       end_date: market.close_time,
       is_active: true,
@@ -466,7 +467,7 @@ async function populateExhaustiveDatabase(): Promise<void> {
         COUNT(*) as count,
         COUNT(DISTINCT category) as categories,
         AVG(volume) as avg_volume,
-        SUM(CASE WHEN volume > 1000 THEN 1 ELSE 0 END) as high_volume_count
+        SUM(CASE WHEN (platform = 'polymarket' AND volume > 1000) OR (platform = 'kalshi' AND volume > 100) THEN 1 ELSE 0 END) as high_volume_count
       FROM raw_markets 
       GROUP BY platform
     `);

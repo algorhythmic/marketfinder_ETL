@@ -86,7 +86,8 @@ async function fetchKalshiMarkets(): Promise<any[]> {
       category,
       yes_price: calculateKalshiPrice(market, 'yes'),
       no_price: calculateKalshiPrice(market, 'no'),
-      volume: parseFloat(String(market.volume_24h || market.volume || 0)),
+      // Kalshi API doesn't provide volume data - use liquidity as proxy for market activity
+      volume: parseFloat(String(market.liquidity || 0)) / 1000, // Scale liquidity to volume-like range
       liquidity: parseFloat(String(market.liquidity || market.open_interest || 0)),
       end_date: market.close_time,
       is_active: true,
