@@ -7,7 +7,7 @@
   ],
   "functions": {
     "api/etl-pipeline/route.ts": {
-      "maxDuration": 300
+      "maxDuration": 60
     }
   },
   "env": {
