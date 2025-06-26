@@ -24,4 +24,4 @@ dist-ssr
 *.sw?
 
 # Local DBs
-data/*
+data/*venv/
