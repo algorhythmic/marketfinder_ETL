@@ -96,36 +96,33 @@ MarketFinder ETL is a high-performance data processing service that identifies a
 ```
 marketfinder-etl/
 ├── src/
-│   └── utils/                    # Core utilities
-│       ├── kalshi-auth.ts        # Kalshi API authentication
-│       └── test-kalshi-auth.ts   # Authentication testing
-├── api/
-│   ├── etl-pipeline/             # Main ETL endpoints
-│   ├── test-etl/                 # Pipeline testing
-│   └── test-fetchers-only/       # Data fetching tests
-├── apps/
-│   └── etl-service/              # Dedicated ETL service
-│       ├── src/
-│       │   ├── api/              # REST API endpoints
-│       │   ├── utils/            # Service utilities
-│       │   └── server.ts         # Main server
-│       └── package.json          # Service dependencies
-├── scripts/
-│   ├── production/               # Production processing scripts
-│   ├── testing/                  # Testing and validation
-│   ├── utilities/                # Data utilities
-│   ├── debug/                    # Debugging tools
-│   └── dev/                      # Development helpers
-├── convex/                       # Backend data functions
-│   ├── schema.ts                 # Database schema
-│   ├── markets.ts                # Market data operations
-│   ├── arbitrage.ts              # Arbitrage detection
-│   └── etl.ts                    # ETL coordination
-└── docs/                         # Comprehensive documentation
-    ├── ETL_PIPELINE.md           # Pipeline documentation
-    ├── multi-layer-comparison-architecture.md
-    ├── LLM_ARBITRAGE_SYSTEM.md   # LLM integration details
-    └── API_CONTRACTS.md          # API specifications
+│   ├── marketfinder_etl/         # Python package – core ETL logic
+│   │   ├── core/                 # Config & logging helpers
+│   │   ├── extractors/           # API clients for Kalshi & Polymarket
+│   │   ├── transformers/         # Data normalization & enrichment
+│   │   ├── engines/              # Bucketing, filtering, ML scoring, LLM eval
+│   │   ├── pipeline/             # Orchestrator and DAG-style helpers
+│   │   ├── storage/              # DuckDB + Convex cache adapters
+│   │   ├── streaming/            # Kafka producer / consumer utilities
+│   │   ├── models/               # Pydantic schemas (Market, Arbitrage, …)
+│   │   └── cli.py                # `python -m marketfinder_etl` entry point
+│   └── utils/                    # Shared TS helpers (e.g., Kalshi auth)
+│       ├── kalshi-auth.ts
+│       └── test-kalshi-auth.ts
+├── convex/                       # Convex backend functions & schema
+├── scripts/                      # Batch scripts (production, testing, etc.)
+│   ├── production/
+│   ├── testing/
+│   ├── utilities/
+│   ├── debug/
+│   └── dev/
+├── dags/                         # Airflow DAG definitions
+├── docs/                         # Project documentation
+│   ├── ETL_PIPELINE.md
+│   ├── multi-layer-comparison-architecture.md
+│   ├── LLM_ARBITRAGE_SYSTEM.md
+│   └── API_CONTRACTS.md
+└── build & config files          # Dockerfile, tsconfig, pyproject, etc.
 ```
 
 ## 🛠️ Quick Start
