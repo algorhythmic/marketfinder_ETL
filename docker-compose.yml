@@ -59,8 +59,8 @@ services:
       postgres:
         condition: service_healthy
     command: >
-      sh -c "poetry run python -m marketfinder_etl.cli setup &&
-             poetry run uvicorn marketfinder_etl.api.main:app --host 0.0.0.0 --port 8000 --reload"
+      sh -c "python -m marketfinder_etl.cli setup &&
+             uvicorn marketfinder_etl.api.main:app --host 0.0.0.0 --port 8000 --reload"
 
   # Airflow Webserver
   airflow-webserver:
@@ -89,15 +89,15 @@ services:
       redis:
         condition: service_healthy
     command: >
-      sh -c "poetry run airflow db init &&
-             poetry run airflow users create \
+      sh -c "airflow db init &&
+             airflow users create \
                --username admin \
                --firstname Admin \
                --lastname User \
                --role Admin \
                --email admin@marketfinder.dev \
                --password admin &&
-             poetry run airflow webserver --port 8080"
+             airflow webserver --port 8080"
 
   # Airflow Scheduler
   airflow-scheduler:
@@ -119,7 +119,7 @@ services:
     depends_on:
       airflow-webserver:
         condition: service_started
-    command: poetry run airflow scheduler
+    command: airflow scheduler
 
   # Prometheus for monitoring
   prometheus:

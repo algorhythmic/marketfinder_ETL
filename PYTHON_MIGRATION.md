@@ -54,7 +54,7 @@ git clone <repo-url>
 cd marketfinder_ETL
 
 # 2. Install dependencies
-poetry install
+uv pip sync
 # OR with pip: pip install -r requirements.txt
 
 # 3. Setup environment
@@ -62,7 +62,7 @@ cp .env.example .env
 # Edit .env with your API keys
 
 # 4. Initialize project
-poetry run marketfinder setup
+python -m marketfinder_etl.cli setup
 
 # 5. Start with Docker Compose
 docker-compose up -d
@@ -76,19 +76,19 @@ docker-compose up -d
 ### **Development Workflow**
 ```bash
 # Run CLI commands
-poetry run marketfinder info
-poetry run marketfinder test-connection
-poetry run marketfinder run-pipeline --dry-run
+python -m marketfinder_etl.cli info
+python -m marketfinder_etl.cli test-connection
+python -m marketfinder_etl.cli run-pipeline --dry-run
 
 # Start Airflow locally
-poetry run marketfinder start-airflow
+python -m marketfinder_etl.cli start-airflow
 
 # Run tests
-poetry run pytest
+pytest
 
 # Format code
-poetry run black src/
-poetry run ruff check src/
+black src/
+ruff check src/
 ```
 
 ## 📊 Migration Benefits
@@ -116,7 +116,7 @@ poetry run ruff check src/
 ## 🔄 Migration Process
 
 ### **Phase 1: Foundation (Completed)**
-✅ Python project structure with Poetry  
+✅ Python project structure with UV  
 ✅ Docker containers for development environment  
 ✅ Pydantic data models  
 ✅ Airflow DAG orchestration  
@@ -219,15 +219,15 @@ tests/
 ### **Testing Commands**
 ```bash
 # Run all tests
-poetry run pytest
+pytest
 
 # Run with coverage
-poetry run pytest --cov=src --cov-report=html
+pytest --cov=src --cov-report=html
 
 # Run specific test categories
-poetry run pytest tests/unit/
-poetry run pytest tests/integration/
-poetry run pytest tests/e2e/
+pytest tests/unit/
+pytest tests/integration/
+pytest tests/e2e/
 ```
 
 ## 🔍 Monitoring & Observability
@@ -254,7 +254,7 @@ from prometheus_client import Counter, Histogram
 ### **Health Checks**
 ```bash
 # Built-in health monitoring
-poetry run marketfinder test-connection
+python -m marketfinder_etl.cli test-connection
 
 # API endpoint health
 curl http://localhost:8000/health
@@ -325,11 +325,11 @@ kubectl apply -f k8s/
 ## 🤝 Contributing
 
 ### **Development Setup**
-1. Install Poetry: `pip install poetry`
+1. Install uv: `pip install uv`
 2. Clone repository: `git clone <repo-url>`
-3. Install dependencies: `poetry install`
-4. Setup pre-commit: `poetry run pre-commit install`
-5. Run tests: `poetry run pytest`
+3. Install dependencies: `uv pip sync`
+4. Setup pre-commit: `pre-commit install`
+5. Run tests: `pytest`
 
 ### **Code Standards**
 - **Formatting**: Black (line length 88)

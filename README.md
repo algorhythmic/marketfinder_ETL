@@ -143,6 +143,9 @@ cd marketfinder_ETL
 # Install dependencies
 npm install
 
+# Install Python runtime + dev dependencies (uses fast Rust-based `uv`)
+uv pip install -e .[dev]
+
 # Set up environment variables
 cp .env.example .env
 # Edit .env with your API keys

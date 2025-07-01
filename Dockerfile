@@ -14,27 +14,22 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-RUN pip install poetry
-
-# Configure Poetry
-ENV POETRY_NO_INTERACTION=1 \
-    POETRY_VENV_IN_PROJECT=1 \
-    POETRY_CACHE_DIR=/tmp/poetry_cache
+# Install uv (fast Python installer/lockfile manager)
+RUN pip install --no-cache-dir uv
 
 WORKDIR /app
 
-# Copy Poetry configuration
-COPY pyproject.toml poetry.lock* ./
+# Copy dependency definitions
+COPY pyproject.toml uv.lock* ./
 
 # Install dependencies
-RUN poetry install --no-dev && rm -rf $POETRY_CACHE_DIR
+RUN uv pip sync --system --prerelease --no-cache-dir
 
 # Development stage
 FROM base as development
 
 # Install development dependencies
-RUN poetry install && rm -rf $POETRY_CACHE_DIR
+RUN uv pip sync --system --no-cache-dir
 
 # Copy source code
 COPY . .
@@ -45,7 +40,7 @@ RUN mkdir -p logs data models
 # Expose ports
 EXPOSE 8000 8080 9090
 
-CMD ["poetry", "run", "python", "-m", "marketfinder_etl.cli", "info"]
+CMD ["python", "-m", "marketfinder_etl.cli", "info"]
 
 # Production stage
 FROM base as production
@@ -69,4 +64,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 EXPOSE 8000
 
-CMD ["poetry", "run", "uvicorn", "marketfinder_etl.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "marketfinder_etl.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

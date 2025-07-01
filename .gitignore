@@ -146,11 +146,10 @@ data/
 *.json.gz
 
 # ML Models
-models/
-*.pkl
-*.joblib
-*.h5
-*.onnx
+models/**/ *.pkl
+models/**/ *.joblib
+models/**/ *.h5
+models/**/ *.onnx
 
 # === Airflow ===
 # Airflow
